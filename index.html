@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Login Administrativo</title>
+    <style>
+
+body {
+ 
+    display: flex;
+    justify-content: center; /* Centraliza horizontalmente */
+    align-items: center; /* Centraliza verticalmente */
+    min-height: 100vh; /* Ocupa a altura total da viewport */
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.login-container {
+    background-color: #ffffff;
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Sombra suave */
+    width: 100%;
+    max-width: 380px; /* Largura máxima para desktops */
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.login-container img {
+    width: 200px; /* Tamanho da imagem de capa */
+    height: 2%;
+    border-radius: 30%; /* Transforma a imagem em um círculo */
+    margin-bottom: 20px;
+    border: 3px solid #007bff; /* Borda da cor primária */
+}
+.alerta {
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    text-align: left;
+    transition: opacity 0.3s ease;
+}
+
+#alertaLogin {
+    background-color: #ffe0e6; /* Fundo vermelho claro para erros */
+    color: #cc0033; /* Texto vermelho escuro */
+    border: 1px solid #ffb3c7;
+}
+
+.login-container input[type="password"] {
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 25px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1em;
+    box-sizing: border-box;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+.login-container button {
+    width: 100%;
+    background-color: #437cb9; /* Cor primária (Azul) */
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.1s;
+    font-weight: bold;
+}
+
+    </style>
+</head>
+<body>
+    
+    <div class="login-container">
+        <img src="./caplogin.JPG">
+        <h1>Bem Vindo!</h1>
+        
+        <div id="alertaLogin" class="alerta" style="display:none;"></div>
+        
+        <input type="password" id="senhaAdmin" required placeholder="Senha do administrador">
+        
+        <button onclick="handleLogin()">Entrar</button>
+        
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios e Estoque</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body onload="carregarRelatorios()">
+    <header>
+        <h1>Relatórios e Gestão de Estoque</h1>
+        <nav>
+            <a href="admin.html">Estoque</a>
+            <a href="caixa.html">Caixa (PDV)</a>
+            <a href="relatorio.html">Relatórios</a>
+            <a href="#" onclick="fazerLogout(); return false;">Sair</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <!-- SEÇÃO DE ESTOQUE -->
+        <section id="estoque">
+            <h2>Estoque Atual</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome</th>
+                            <th>Quantidade/Peso</th>
+                            <th>Preço/Unidade</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaEstoqueBody">
+                        <!-- Dados serão preenchidos via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <hr>
+
+        <!-- SEÇÃO DE CAIXAS FECHADOS -->
+        <section id="relatorioCaixas">
+            <h2>Histórico de Caixas Fechados</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Caixa</th>
+                            <th>Operador</th>
+                            <th>Início da Sessão</th>
+                            <th>Hora Fechamento</th>
+                            <th>Total da Sessão</th>
+                            <th>Qtd. Vendas</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaCaixasFechadosBody">
+                        <!-- Dados serão preenchidos via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="resumo-relatorio">
+                <p>Este relatório detalha cada sessão de trabalho encerrada (fechamento de caixa), 
+                    permitindo rastrear o desempenho individual por operador.</p>
+            </div>
+        </section>
+    </div>
+
+    <div id="customAlertModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div id="modalHeader" class="modal-header info-header">
+                <h3>Notificação do Sistema</h3>
+            </div>
+            <p id="modalMessage"></p>
+            <div class="modal-footer">
+                <button id="modalOk" class="btn-primary">OK</button>
+                <button id="modalConfirm" class="btn-confirm" style="display:none;">Confirmar</button>
+                <button id="modalCancel" class="btn-cancel" style="display:none;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

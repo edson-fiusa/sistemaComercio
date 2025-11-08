@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - Gerenciamento</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body onload="renderizarTabelaProdutos(); renderizarTabelaOperadores()">
+    <header>
+        <h1>Estoque e Operadores</h1>
+        <nav>
+            <a href="admin.html">Estoque</a>
+            <a href="caixa.html">Caixa (PDV)</a>
+            <a href="relatorio.html">Relatórios</a>
+            <a href="#" onclick="fazerLogout()">Sair</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        
+        <h2>Cadastrar Novo Produto</h2>
+        <form id="formCadastro">
+            <label for="nomeProduto">Nome:</label>
+            <input type="text" id="nomeProduto" required>
+
+            <label for="unidadeProduto">Unidade de Venda:</label>
+            <select id="unidadeProduto" required>
+                <option value="unidade">Unidade (un)</option>
+                <option value="kg">Quilograma (kg)</option>
+            </select>
+
+            <label for="qtdProduto">Quantidade/Peso em Estoque:</label>
+            <input type="number" id="qtdProduto" min="0" value="0" step="any" required>
+
+            <label for="precoProduto">Preço (R$ / Unidade ou Kg):</label>
+            <input type="number" id="precoProduto" step="0.01" min="0" required>
+
+            <button type="button" onclick="cadastrarProduto()">Cadastrar Produto</button>
+        </form>
+
+        <hr>
+        
+        <div id="sectionEdicao" style="display:none; border: 1px solid #3498db; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+            <h2>Alterar Produto</h2>
+            <input type="hidden" id="editId">
+            <label for="editNome">Nome:</label>
+            <input type="text" id="editNome" required>
+
+            <label for="editUnidade">Unidade de Venda:</label>
+            <select id="editUnidade" required>
+                <option value="unidade">Unidade (un)</option>
+                <option value="kg">Quilograma (kg)</option>
+            </select>
+
+            <label for="editQtd">Quantidade/Peso em Estoque:</label>
+            <input type="number" id="editQtd" min="0" step="any" required>
+
+            <label for="editPreco">Preço (R$ / Unidade ou Kg):</label>
+            <input type="number" id="editPreco" step="0.01" min="0" required>
+
+            <button type="button" onclick="salvarEdicao()">Salvar Alterações</button>
+        </div>
+
+        <hr>
+
+        <h2>Produtos Cadastrados</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Estoque</th>
+                    <th>Preço/Unidade</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaProdutosBody"></tbody>
+        </table>
+
+        <hr>
+
+        <h2>Cadastrar Novo Operador de Caixa</h2>
+        <form id="formOperador">
+            <label for="nomeOperador">Nome do Operador:</label>
+            <input type="text" id="nomeOperador" required>
+
+            <label for="codigoOperador">Código de Acesso:</label>
+            <input type="text" id="codigoOperador" placeholder="Ex: 1001 (Usado para login no caixa)" required>
+
+            <button type="button" onclick="cadastrarOperador()">Cadastrar Operador</button>
+        </form>
+
+        <hr>
+
+        <h2>Operadores Cadastrados</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Código</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaOperadoresBody"></tbody>
+        </table>
+        
+    </div>
+
+    <div id="customAlertModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div id="modalHeader" class="modal-header info-header">
+                <h3>Notificação do Sistema</h3>
+            </div>
+            <p id="modalMessage"></p>
+            <div class="modal-footer">
+                <button id="modalOk" class="btn-primary">OK</button>
+                <button id="modalConfirm" class="btn-confirm" style="display:none;">Confirmar</button>
+                <button id="modalCancel" class="btn-cancel" style="display:none;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
