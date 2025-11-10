@@ -354,3 +354,109 @@ button:hover {
     color: #333; 
     padding: 2px;
 }
+
+/* --- Responsividade (Media Queries) --- */
+
+/* Ajustes para Telas de Tablet (Max-width: 992px) */
+@media (max-width: 992px) {
+    /* Ajusta a largura dos painéis para telas de tablet se necessário */
+    .painel-esquerda {
+        flex: 0 0 40%; /* Aumenta a largura do painel esquerdo */
+    }
+
+    .painel-direita {
+        flex: 0 0 55%; /* Diminui ligeiramente a largura do painel direito */
+    }
+
+    /* Ajusta a lista de sugestões para a nova largura */
+    #listaSugestoes {
+        width: calc(min(100%, 700px) * 0.4 - 40px); /* Ajusta a largura para 40% do container */
+    }
+}
+
+
+/* Ajustes para Telas de Celular (Max-width: 768px) */
+@media (max-width: 768px) {
+    /* 1. Quebra do Layout Flexível */
+    .caixa-layout {
+        flex-direction: column; /* Coloca os itens um abaixo do outro */
+        gap: 15px; /* Reduz o espaçamento */
+        padding: 10px; /* Reduz o padding */
+    }
+
+    /* Os painéis ocupam a largura total e a altura é ajustada */
+    .painel-esquerda, 
+    .painel-direita {
+        flex: 0 0 100%; /* Ocupa 100% da largura */
+        min-height: auto; /* Remove a altura mínima fixa para não forçar em mobile */
+    }
+    
+    .painel-direita {
+        overflow-x: auto; /* Adiciona rolagem horizontal se a tabela for muito larga */
+    }
+    
+    /* 2. Formulários */
+    .login-admin-box {
+        max-width: 95%; /* Ocupa quase a tela toda */
+        min-width: auto;
+        margin: 20px auto;
+    }
+
+    /* 3. Tabela de Carrinho (exemplo específico para a tabela) */
+    .carrinho-main-cell {
+        width: 70%; /* Dá mais espaço para o conteúdo principal */
+    }
+    
+    .carrinho-acao-cell {
+        width: 30%; /* Diminui o espaço da ação */
+    }
+    
+    .btn-remover-item {
+        width: 100%; /* Faz o botão de remover ocupar toda a largura disponível */
+        padding: 8px 5px;
+        height: auto;
+    }
+    
+    /* 4. Lista de Sugestões (Autocomplete) */
+    #listaSugestoes {
+        /* Garante que ocupe a largura total do campo de entrada no layout quebrado */
+        width: calc(100% - 40px); 
+        position: relative; /* Pode ser necessário ajustar o posicionamento */
+        margin-bottom: 15px;
+    }
+    
+    /* 5. Outros elementos gerais */
+    .container {
+        padding: 0px;
+        width: 98%;
+        margin: 10px ;
+    }
+
+    button {
+        padding: 12px 15px;
+        font-size: 14px;
+    }
+    
+    .btn-encerrar {
+        width: 50%; /* Reduz a largura do botão de encerrar */
+    }
+    
+    .modal-content {
+        width: 95%; /* Modal ocupa mais espaço na tela */
+    }
+}
+
+/* Ajustes para Telas muito pequenas (Max-width: 480px) */
+@media (max-width: 480px) {
+    .carrinho-main-cell, 
+    .carrinho-acao-cell {
+        display: block;
+        width: 100% !important; 
+        text-align: left !important;
+        padding-bottom: 0;
+    }
+    
+    .carrinho-acao-cell {
+        margin-top: 50px; /* Adiciona um pequeno espaço entre os blocos */
+    }
+}

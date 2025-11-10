@@ -29,7 +29,7 @@ body {
 
 .login-container img {
     width: 200px; /* Tamanho da imagem de capa */
-    height: 2%;
+    height: 200px;
     border-radius: 30%; /* Transforma a imagem em um círculo */
     margin-bottom: 20px;
     border: 3px solid #007bff; /* Borda da cor primária */
@@ -46,7 +46,7 @@ body {
 #alertaLogin {
     background-color: #ffe0e6; /* Fundo vermelho claro para erros */
     color: #cc0033; /* Texto vermelho escuro */
-    border: 1px solid #ffb3c7;
+    border: 5px solid #ffb3c7;
 }
 
 .login-container input[type="password"] {
@@ -71,7 +71,22 @@ body {
     transition: background-color 0.3s ease, transform 0.1s;
     font-weight: bold;
 }
-
+@media (max-width: 700px) {
+    .login-container {
+        background-color: #dbbaba;
+        border-radius: 12px;
+        max-width: 100%;
+        height: 35em;
+        margin: -10px;
+    }
+        .login-container img {
+        width: 200px; /* Tamanho da imagem de capa */
+        height: 200px;
+        border-radius: 30%; /* Transforma a imagem em um círculo */
+        margin-bottom: 20px;
+        border: 3px solid #007bff; /* Borda da cor primária */
+    }
+  }
     </style>
 </head>
 <body>

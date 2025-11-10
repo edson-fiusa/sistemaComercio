@@ -21,9 +21,10 @@ function obterDados(chave) {
 function salvarDados(chave, dados) {
     try {
         localStorage.setItem(chave, JSON.stringify(dados));
+        console.log(`✅ Dados salvos em ${chave}:`, dados);
         return true;
     } catch (error) {
-        console.error(`Erro ao salvar dados na chave ${chave}:`, error);
+        console.error(`❌ Erro ao salvar dados na chave ${chave}:`, error);
         return false;
     }
 }
@@ -142,7 +143,8 @@ function cadastrarProduto() {
     }
 
     let produtos = obterDados(CHAVE_PRODUTOS);
-    const novoId = produtos.length > 0 ? Math.max(...produtos.map(p => p.id)) + 1 : 1;
+    const idsProdutos = produtos.map(p => p.id);
+    const novoId = idsProdutos.length > 0 ? Math.max(...idsProdutos) + 1 : 1;
 
     const novoProduto = { 
         id: novoId, 
@@ -557,6 +559,13 @@ function finalizarCompra(metodoPagamento, total, valorRecebido = null, troco = 0
     const sessaoInicio = sessionStorage.getItem('sessaoInicio') || 'N/A'; 
     const carrinhoFinal = [...carrinho];
 
+    console.log('🔵 FINALIZANDO COMPRA:');
+    console.log('- Operador:', operador);
+    console.log('- Sessão Início:', sessaoInicio);
+    console.log('- Itens no carrinho:', carrinhoFinal.length);
+    console.log('- Total:', total);
+    console.log('- Pagamento:', metodoPagamento);
+
     // 1. ATUALIZA ESTOQUE
     let produtos = obterDados(CHAVE_PRODUTOS);
     carrinhoFinal.forEach(itemCarrinho => {
@@ -567,9 +576,16 @@ function finalizarCompra(metodoPagamento, total, valorRecebido = null, troco = 0
     });
     salvarDados(CHAVE_PRODUTOS, produtos);
 
-    // 2. REGISTRA VENDA
+    // 2. REGISTRA VENDA - CÁLCULO CORRETO DO ID
     const vendas = obterDados(CHAVE_VENDAS);
-    const novoIdVenda = vendas.length > 0 ? Math.max(...vendas.map(v => v.idVenda)) + 1 : 1;
+    
+    let novoIdVenda;
+    if (vendas.length === 0) {
+        novoIdVenda = 1;
+    } else {
+        const idsExistentes = vendas.map(v => v.idVenda).filter(id => !isNaN(id));
+        novoIdVenda = idsExistentes.length > 0 ? Math.max(...idsExistentes) + 1 : 1;
+    }
 
     const novaVenda = {
         idVenda: novoIdVenda,
@@ -583,6 +599,8 @@ function finalizarCompra(metodoPagamento, total, valorRecebido = null, troco = 0
         sessaoInicio: sessaoInicio
     };
 
+    console.log('✅ VENDA REGISTRADA:', novaVenda);
+
     vendas.push(novaVenda);
     salvarDados(CHAVE_VENDAS, vendas);
 
@@ -594,7 +612,6 @@ function finalizarCompra(metodoPagamento, total, valorRecebido = null, troco = 0
     renderizarCarrinho(); 
 }
 
-// --- FUNÇÃO ENCERRAR CAIXA CORRIGIDA ---
 function encerrarCaixa() {
     if (carrinho.length > 0) {
         showCustomAlert('Não é possível encerrar o caixa com itens no carrinho. Finalize a venda ou remova os produtos.', 'error');
@@ -612,15 +629,19 @@ function encerrarCaixa() {
     showCustomAlert(`Deseja realmente encerrar o caixa para o operador ${operador} e gerar o relatório diário?`, 'confirm', (confirma) => {
         if (!confirma) return;
         
-        const vendas = obterDados(CHAVE_VENDAS);
-        console.log('Todas as vendas:', vendas);
+        console.log('🟡 ENCERRANDO CAIXA:');
+        console.log('- Operador:', operador);
+        console.log('- Sessão Início:', sessaoInicio);
         
-        // CORREÇÃO: Filtrar vendas da sessão atual corretamente
+        const vendas = obterDados(CHAVE_VENDAS);
+        console.log('- Todas as vendas no sistema:', vendas);
+        
+        // Filtrar vendas da sessão atual
         const vendasDaSessao = vendas.filter(venda => 
             venda.operador === operador && venda.sessaoInicio === sessaoInicio
         );
         
-        console.log('Vendas da sessão:', vendasDaSessao);
+        console.log('- Vendas desta sessão:', vendasDaSessao);
         
         let resumo = { totalVendas: 0, totalPix: 0, totalCartao: 0, totalDinheiro: 0 };
         vendasDaSessao.forEach(venda => {
@@ -638,10 +659,15 @@ function encerrarCaixa() {
         resumo.totalDinheiro = Number(resumo.totalDinheiro.toFixed(2));
 
         const caixasFechados = obterDados(CHAVE_CAIXAS_FECHADOS);
-        console.log('Caixas fechados existentes:', caixasFechados);
+        console.log('- Caixas fechados existentes:', caixasFechados);
         
-        // CORREÇÃO: Calcular ID corretamente
-        const novoIdCaixa = caixasFechados.length > 0 ? Math.max(...caixasFechados.map(c => c.idCaixa)) + 1 : 1;
+        let novoIdCaixa;
+        if (caixasFechados.length === 0) {
+            novoIdCaixa = 1;
+        } else {
+            const idsCaixas = caixasFechados.map(c => c.idCaixa).filter(id => !isNaN(id));
+            novoIdCaixa = idsCaixas.length > 0 ? Math.max(...idsCaixas) + 1 : 1;
+        }
 
         const novoFechamento = {
             idCaixa: novoIdCaixa,
@@ -652,15 +678,18 @@ function encerrarCaixa() {
             vendasIds: vendasDaSessao.map(v => v.idVenda)
         };
 
-        console.log('Novo fechamento a ser salvo:', novoFechamento);
+        console.log('- Novo fechamento a ser salvo:', novoFechamento);
         
         caixasFechados.push(novoFechamento);
         const salvou = salvarDados(CHAVE_CAIXAS_FECHADOS, caixasFechados);
         
         if (salvou) {
-            console.log('Caixa fechado salvo com sucesso!');
+            console.log('✅ CAIXA FECHADO SALVO COM SUCESSO!');
+            console.log('- ID do Caixa:', novoIdCaixa);
+            console.log('- Total de Vendas:', vendasDaSessao.length);
+            console.log('- Valor Total:', resumo.totalVendas);
         } else {
-            console.error('Erro ao salvar caixa fechado!');
+            console.error('❌ ERRO AO SALVAR CAIXA FECHADO!');
         }
 
         const relatorioHTML = `
@@ -701,6 +730,12 @@ function encerrarCaixa() {
 
 // --- FUNÇÕES DE RELATÓRIO ---
 
+function carregarRelatorios() {
+    console.log('📊 CARREGANDO RELATÓRIOS...');
+    renderizarEstoque();
+    renderizarRelatorioCaixasFechados();
+}
+
 function renderizarEstoque() {
     const produtos = obterDados(CHAVE_PRODUTOS);
     const tbody = document.getElementById('tabelaEstoqueBody');
@@ -737,12 +772,12 @@ function renderizarEstoque() {
 
 function renderizarRelatorioCaixasFechados() {
     const caixasFechados = obterDados(CHAVE_CAIXAS_FECHADOS);
-    console.log('Dados de caixas fechados para renderizar:', caixasFechados);
+    console.log('📋 DADOS DE CAIXAS FECHADOS PARA RENDERIZAR:', caixasFechados);
     
     const tbody = document.getElementById('tabelaCaixasFechadosBody');
     
     if (!tbody) {
-        console.error('Elemento tabelaCaixasFechadosBody não encontrado');
+        console.error('❌ Elemento tabelaCaixasFechadosBody não encontrado');
         return;
     }
 
@@ -754,11 +789,14 @@ function renderizarRelatorioCaixasFechados() {
         cell.colSpan = 7;
         cell.textContent = 'Nenhum caixa fechado encontrado';
         cell.style.textAlign = 'center';
+        console.log('ℹ️ Nenhum caixa fechado encontrado no localStorage');
         return;
     }
 
     // Ordenar por ID decrescente (mais recentes primeiro)
     caixasFechados.sort((a, b) => b.idCaixa - a.idCaixa);
+    
+    console.log(`✅ Renderizando ${caixasFechados.length} caixa(s) fechado(s)`);
     
     caixasFechados.forEach(caixa => {
         const resumo = caixa.resumo;
@@ -797,6 +835,8 @@ function calcularDuracaoSessao(inicio, fim) {
 }
 
 function mostrarDetalhesCaixa(idCaixa) {
+    console.log(`🔍 MOSTRANDO DETALHES DO CAIXA #${idCaixa}`);
+    
     const caixasFechados = obterDados(CHAVE_CAIXAS_FECHADOS);
     const caixa = caixasFechados.find(c => c.idCaixa === idCaixa);
 
@@ -806,7 +846,11 @@ function mostrarDetalhesCaixa(idCaixa) {
     }
 
     const vendasRegistradas = obterDados(CHAVE_VENDAS);
+    console.log('📦 Todas as vendas registradas:', vendasRegistradas);
+    console.log('🔑 IDs de vendas deste caixa:', caixa.vendasIds);
+
     const vendasDaSessao = vendasRegistradas.filter(v => caixa.vendasIds.includes(v.idVenda));
+    console.log('✅ Vendas filtradas para este caixa:', vendasDaSessao);
 
     let resumoProdutos = {};
     let resumoPagamentos = {};
@@ -833,6 +877,9 @@ function mostrarDetalhesCaixa(idCaixa) {
         }
         resumoPagamentos[pagamento] += venda.total;
     });
+
+    console.log('📊 Resumo de produtos:', resumoProdutos);
+    console.log('💳 Resumo de pagamentos:', resumoPagamentos);
 
     // Construir HTML dos produtos
     let produtosHTML = '<h4>📦 Produtos Vendidos na Sessão:</h4>';
@@ -929,20 +976,25 @@ function mostrarDetalhesCaixa(idCaixa) {
     showCustomAlert(detalhesHTML, 'report');
 }
 
-// --- FUNÇÃO PARA GERAR CUPOM FISCAL ---
+// --- FUNÇÃO PARA GERAR CUPOM FISCAL CORRIGIDA ---
 function gerarCupomFiscal(venda) {
+    console.log('🟡 GERANDO CUPOM - Venda recebida:', venda);
+    
     const operador = sessionStorage.getItem('operadorLogado') || 'N/A';
     const dataHora = new Date(venda.data).toLocaleString('pt-BR', { hour12: false });
     
     const qtdTotal = venda.itens.reduce((acc, item) => acc + Number(item.qtd), 0);
 
+    // CORREÇÃO: Garantir que o número da venda seja exibido corretamente
+    const numeroVenda = venda.idVenda ? venda.idVenda : 'N/A';
+
     let cupomHTML = `
-        <div style="max-width: 300px; margin: 0 auto; font-family: monospace;">
+        <div style="width: 300px; margin: 0 auto; font-family: monospace;">
             <h3 style="text-align:center; margin-bottom: 10px;">CUPOM FISCAL</h3>
             <hr style="border-top: 1px dashed #000; margin: 10px 0;">
             <p><strong>Operador:</strong> ${operador}</p>
             <p><strong>Data/Hora:</strong> ${dataHora}</p>
-            <p><strong>Venda #:</strong> ${venda.idVenda}</p>
+            <p><strong>Venda:</strong> ${numeroVenda}</p>
             <hr style="border-top: 1px dashed #000; margin: 10px 0;">
     `;
 
@@ -989,26 +1041,24 @@ function gerarCupomFiscal(venda) {
     `;
 
     showCustomAlert(cupomHTML, 'report', () => {
-        showCustomAlert(`Venda #${venda.idVenda} finalizada com sucesso!`, 'success');
+        showCustomAlert(`Venda #${numeroVenda} finalizada com sucesso!`, 'success');
     });
 }
 
 // --- INICIALIZAÇÃO ---
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM carregado, verificando admin...');
+    console.log('🚀 DOM carregado, verificando admin...');
     verificarAdmin();
     
     // Verificar se estamos na página de relatórios
     if (window.location.pathname.includes('relatorio.html')) {
-        console.log('Página de relatórios detectada, renderizando dados...');
-        renderizarEstoque();
-        renderizarRelatorioCaixasFechados();
+        console.log('📄 Página de relatórios detectada');
+        carregarRelatorios();
     }
     
     // Verificar se estamos na página admin
     if (window.location.pathname.includes('admin.html')) {
-        console.log('Página admin detectada, renderizando tabelas...');
-        renderizarTabelaProdutos();
-        renderizarTabelaOperadores();
+        console.log('⚙️ Página admin detectada');
+        // Funções admin serão carregadas quando necessário
     }
 });
