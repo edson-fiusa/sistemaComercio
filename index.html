@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estoque Mestre</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <meta name="theme-color" content="#0c7036">
+    <link rel="shortcut icon" type="imagex/png" href="/negociacao.png">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="logo">
+                <div class="cavalo-xadrez">♞ </div>
+                <h1>Estoque Mestre</h1>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Tela Principal -->
+    <main class="container">
+        <!-- Tela de Login -->
+        <section id="loginScreen" class="login-container">
+            <div class="login-box">
+                <h2>Selecione o Modo</h2>
+                <div class="menu">
+                    <button class="menu-btn" id="btnAdminLogin">
+                        <i class="fas fa-user-shield"></i>
+                        <span>Modo Administrador</span>
+                    </button>
+                    <button class="menu-btn" id="btnCaixaLogin">
+                        <i class="fas fa-cash-register"></i>
+                        <span>Caixa PDV</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Login Administrador -->
+        <section id="adminLoginScreen" class="admin-login hidden">
+            <div class="login-box">
+                <h2>Acesso Administrador</h2>
+                <div id="adminError" class="error-message"></div>
+                <div class="input-group">
+                    <label for="adminPassword">Senha:</label>
+                    <input type="password" id="adminPassword" placeholder="Digite a senha de administrador">
+                    <span class="info-senha">Senha padrão: admin123</span>
+                </div>
+                <button class="btn" id="btnLoginAdmin">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Entrar
+                </button>
+                <button class="btn btn-voltar" id="btnVoltarAdmin">
+                    <i class="fas fa-arrow-left"></i>
+                    Voltar
+                </button>
+            </div>
+        </section>
+        
+        <!-- Login Caixa -->
+        <section id="caixaLoginScreen" class="admin-login hidden">
+            <div class="login-box">
+                <h2>Acesso Caixa</h2>
+                <div id="caixaError" class="error-message"></div>
+                <div class="input-group">
+                    <label for="operador">Operador:</label>
+                    <select id="operador">
+                        <option value="">Selecione um operador</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="caixaPassword">Senha:</label>
+                    <input type="password" id="caixaPassword" placeholder="Digite sua senha">
+                </div>
+                <button class="btn" id="btnLoginCaixa">
+                    <i class="fas fa-cash-register"></i>
+                    Abrir Caixa
+                </button>
+                <button class="btn btn-voltar" id="btnVoltarCaixa">
+                    <i class="fas fa-arrow-left"></i>
+                    Voltar
+                </button>
+            </div>
+        </section>
+        
+        <!-- Modo Administrador -->
+        <section id="adminMode" class="hidden">
+            <div class="flex justify-between items-center mb-20">
+                <h2>Modo Administrador</h2>
+                <button class="btn btn-voltar" id="btnLogoutAdmin">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Sair
+                </button>
+            </div>
+            
+            <div class="menu">
+                <button class="menu-btn" data-section="cadastroProduto">
+                    <i class="fas fa-box"></i>
+                    <span>Cadastrar Produto</span>
+                </button>
+                <button class="menu-btn" data-section="gerenciarProdutos">
+                    <i class="fas fa-edit"></i>
+                    <span>Gerenciar Produtos</span>
+                </button>
+                <button class="menu-btn" data-section="entradaProduto">
+                    <i class="fas fa-arrow-down"></i>
+                    <span>Entrada de Produto</span>
+                </button>
+                <button class="menu-btn" data-section="avariaProduto">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Registrar Avaria</span>
+                </button>
+                <button class="menu-btn" data-section="relatorioEstoque">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Relatório Estoque</span>
+                </button>
+                <button class="menu-btn" data-section="relatorioCaixa">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Relatório Caixa</span>
+                </button>
+                <button class="menu-btn" data-section="gerenciarOperadores">
+                    <i class="fas fa-users"></i>
+                    <span>Gerenciar Operadores</span>
+                </button>
+            </div>
+            
+            <!-- Cadastro de Produto -->
+            <div id="cadastroProduto" class="form-container hidden">
+                <h2><i class="fas fa-box"></i> Cadastro de Produto</h2>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="produtoNome">Nome do Produto:</label>
+                        <input type="text" id="produtoNome" placeholder="Digite o nome">
+                    </div>
+                    <div class="input-group">
+                        <label for="produtoCodigo">Código do Produto:</label>
+                        <input type="text" id="produtoCodigo" placeholder="Código único">
+                    </div>
+                    <div class="input-group">
+                        <label for="precoEntrada">Preço de Custo (R$):</label>
+                        <input type="number" step="0.01" id="precoEntrada" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label for="precoVenda">Preço de Venda (R$):</label>
+                        <input type="number" step="0.01" id="precoVenda" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label for="unidadeMedida">Unidade de Medida:</label>
+                        <select id="unidadeMedida">
+                            <option value="unidade">Unidade</option>
+                            <option value="quilo">Quilo (kg)</option>
+                            <option value="litro">Litro (L)</option>
+                            <option value="metro">Metro (m)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="quantidadeInicial">Quantidade Inicial:</label>
+                        <input type="number" step="0.001" id="quantidadeInicial" value="0">
+                    </div>
+                    <div class="input-group">
+                        <label for="estoqueMinimo">Estoque Mínimo:</label>
+                        <input type="number" step="0.001" id="estoqueMinimo" value="0">
+                    </div>
+                    <div class="input-group">
+                        <label for="categoriaProduto">Categoria:</label>
+                        <input type="text" id="categoriaProduto" placeholder="Ex: Alimentos, Bebidas...">
+                    </div>
+                </div>
+                <button class="btn mt-20" id="btnCadastrarProduto">
+                    <i class="fas fa-save"></i>
+                    Cadastrar Produto
+                </button>
+            </div>
+            
+            <!-- Gerenciar Produtos -->
+            <div id="gerenciarProdutos" class="form-container hidden">
+                <h2><i class="fas fa-edit"></i> Gerenciar Produtos</h2>
+                <div class="input-group">
+                    <input type="text" id="buscarProdutoAdmin" placeholder="Buscar produto por nome ou código...">
+                </div>
+                <div class="table-container mt-20">
+                    <table id="produtosTable">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nome</th>
+                                <th>Quantidade</th>
+                                <th>Preço Venda</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="produtosTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Entrada de Produto -->
+            <div id="entradaProduto" class="form-container hidden">
+                <h2><i class="fas fa-arrow-down"></i> Entrada de Produto no Estoque</h2>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="produtoSelect">Produto:</label>
+                        <select id="produtoSelect"></select>
+                    </div>
+                    <div class="input-group">
+                        <label for="quantidadeEntrada">Quantidade:</label>
+                        <input type="number" step="0.001" id="quantidadeEntrada" placeholder="0" min="0.001">
+                    </div>
+                    <div class="input-group">
+                        <label for="precoCustoEntrada">Preço de Custo (opcional):</label>
+                        <input type="number" step="0.01" id="precoCustoEntrada" placeholder="Deixe em branco para manter atual">
+                    </div>
+                    <div class="input-group">
+                        <label for="motivoEntrada">Motivo da Entrada:</label>
+                        <select id="motivoEntrada">
+                            <option value="compra">Compra</option>
+                            <option value="devolucao">Devolução</option>
+                            <option value="ajuste">Ajuste de Estoque</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="infoProduto" class="alert" style="display: none;">
+                    <p><strong>Informações do Produto:</strong></p>
+                    <p>Estoque Atual: <span id="estoqueAtual">0</span> <span id="unidadeAtual"></span></p>
+                    <p>Preço de Custo: R$ <span id="precoCustoAtual">0.00</span></p>
+                    <p>Preço de Venda: R$ <span id="precoVendaAtual">0.00</span></p>
+                </div>
+                <button class="btn mt-20" id="btnRegistrarEntrada">
+                    <i class="fas fa-plus-circle"></i>
+                    Registrar Entrada
+                </button>
+            </div>
+            
+            <!-- Registrar Avaria -->
+            <div id="avariaProduto" class="form-container hidden">
+                <h2><i class="fas fa-exclamation-triangle"></i> Registrar Avaria/Perda</h2>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="produtoAvaria">Produto:</label>
+                        <select id="produtoAvaria"></select>
+                    </div>
+                    <div class="input-group">
+                        <label for="quantidadeAvaria">Quantidade:</label>
+                        <input type="number" step="0.001" id="quantidadeAvaria" placeholder="0" min="0.001">
+                    </div>
+                    <div class="input-group">
+                        <label for="motivoAvaria">Motivo:</label>
+                        <select id="motivoAvaria">
+                            <option value="vencido">Produto Vencido</option>
+                            <option value="danificado">Produto Danificado</option>
+                            <option value="quebra">Quebra/Acidente</option>
+                            <option value="roubo">Roubo/Furto</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="observacaoAvaria">Observação:</label>
+                        <textarea id="observacaoAvaria" rows="3" placeholder="Detalhes adicionais..."></textarea>
+                    </div>
+                </div>
+                <div id="infoProdutoAvaria" class="alert" style="display: none;">
+                    <p><strong>Informações do Produto:</strong></p>
+                    <p>Estoque Atual: <span id="estoqueAtualAvaria">0</span> <span id="unidadeAtualAvaria"></span></p>
+                </div>
+                <button class="btn btn-vermelho mt-20" id="btnRegistrarAvaria">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Registrar Avaria
+                </button>
+            </div>
+            
+            <!-- Relatório de Estoque -->
+            <div id="relatorioEstoque" class="form-container hidden">
+                <h2><i class="fas fa-clipboard-list"></i> Relatório de Estoque</h2>
+                <div class="flex gap-10 mb-20">
+                    <div class="input-group">
+                        <label for="filtroCategoria">Filtrar por Categoria:</label>
+                        <select id="filtroCategoria">
+                            <option value="todos">Todas as Categorias</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="filtroEstoque">Filtrar por Estoque:</label>
+                        <select id="filtroEstoque">
+                            <option value="todos">Todos</option>
+                            <option value="baixo">Estoque Baixo</option>
+                            <option value="zerado">Estoque Zerado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="estoqueTable">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nome</th>
+                                <th>Categoria</th>
+                                <th>Quantidade</th>
+                                <th>Unidade</th>
+                                <th>Preço Custo</th>
+                                <th>Preço Venda</th>
+                                <th>Valor Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="estoqueTableBody"></tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="7" style="text-align: right; font-weight: bold;">Valor Total do Estoque:</td>
+                                <td style="font-weight: bold;" id="totalEstoqueValor">R$ 0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="flex gap-10 mt-20">
+                    <button class="btn" id="btnExportarPDF">
+                        <i class="fas fa-file-pdf"></i>
+                        Exportar PDF
+                    </button>
+                    <button class="btn" id="btnExportarCSV">
+                        <i class="fas fa-file-csv"></i>
+                        Exportar CSV
+                    </button>
+                    <button class="btn" id="btnImprimirRelatorio">
+                        <i class="fas fa-print"></i>
+                        Imprimir
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Relatório de Caixa -->
+            <div id="relatorioCaixa" class="form-container hidden">
+                <h2><i class="fas fa-chart-line"></i> Relatório de Caixa</h2>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="dataInicio">Data Início:</label>
+                        <input type="date" id="dataInicio" value="">
+                    </div>
+                    <div class="input-group">
+                        <label for="dataFim">Data Fim:</label>
+                        <input type="date" id="dataFim" value="">
+                    </div>
+                    <div class="input-group">
+                        <label for="operadorRelatorio">Operador:</label>
+                        <select id="operadorRelatorio">
+                            <option value="todos">Todos os Operadores</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="statusCaixa">Status do Caixa:</label>
+                        <select id="statusCaixa">
+                            <option value="todos">Todos</option>
+                            <option value="aberto">Abertos</option>
+                            <option value="fechado">Fechados</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn mt-20" id="btnGerarRelatorioCaixa">
+                    <i class="fas fa-search"></i>
+                    Gerar Relatório
+                </button>
+                
+                <div class="table-container mt-20">
+                    <table id="caixaTable">
+                        <thead>
+                            <tr>
+                                <th>Data Abertura</th>
+                                <th>Operador</th>
+                                <th>Vendas</th>
+                                <th>Total Vendas</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="caixaTableBody"></tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3" style="text-align: right; font-weight: bold;">Total Geral:</td>
+                                <td style="font-weight: bold;" id="totalGeralCaixa">R$ 0.00</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="flex gap-10 mt-20">
+                    <button class="btn" id="btnExportarRelatorioCaixa">
+                        <i class="fas fa-file-excel"></i>
+                        Exportar Relatório
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Gerenciar Operadores -->
+            <div id="gerenciarOperadores" class="form-container hidden">
+                <h2><i class="fas fa-users"></i> Gerenciar Operadores</h2>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="novoOperadorNome">Nome do Operador:</label>
+                        <input type="text" id="novoOperadorNome" placeholder="Nome completo">
+                    </div>
+                    <div class="input-group">
+                        <label for="novoOperadorUsuario">Usuário:</label>
+                        <input type="text" id="novoOperadorUsuario" placeholder="Nome de usuário">
+                    </div>
+                    <div class="input-group">
+                        <label for="novoOperadorSenha">Senha:</label>
+                        <input type="password" id="novoOperadorSenha" placeholder="Mínimo 4 caracteres">
+                    </div>
+                    <div class="input-group">
+                        <label for="confirmarSenha">Confirmar Senha:</label>
+                        <input type="password" id="confirmarSenha" placeholder="Digite novamente">
+                    </div>
+                </div>
+                <button class="btn mt-20" id="btnCadastrarOperador">
+                    <i class="fas fa-user-plus"></i>
+                    Cadastrar Operador
+                </button>
+                
+                <div class="table-container mt-20">
+                    <table id="operadoresTable">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Usuário</th>
+                                <th>Data Cadastro</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="operadoresTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Modo Caixa PDV -->
+        <section id="caixaMode" class="hidden">
+            <div class="pdv-container">
+                <div class="pdv-header">
+                    <div>
+                        <h2>Caixa PDV</h2>
+                        <div id="infoOperador"></div>
+                        <div id="infoCaixa" class="status-caixa status-aberto"></div>
+                    </div>
+                    <div class="flex gap-10">
+                        <button class="btn btn-voltar" id="btnEncerrarCaixa">
+                            <i class="fas fa-power-off"></i>
+                            Encerrar Caixa
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="pdv-main">
+                    <div class="produtos-section">
+                        <h3>Produtos Disponíveis</h3>
+                        <div class="input-group">
+                            <input type="text" id="buscaProduto" placeholder="Digite o nome ou código do produto...">
+                        </div>
+                        <div id="listaProdutos" class="mt-20">
+                            <div class="empty-state" id="mensagemBusca">
+                                <i class="fas fa-search"></i>
+                                <p>Digite o nome ou código do produto para buscar</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="carrinho-section">
+                        <div class="flex justify-between items-center mb-10">
+                            <h3>Carrinho de Compras</h3>
+                            <div class="carrinho-total-small">
+                                Total: R$ <span id="totalCarrinhoSmall">0.00</span>
+                            </div>
+                        </div>
+                        
+                        <div class="carrinho-items" id="carrinhoItems">
+                            <div class="empty-state" id="carrinhoVazio">
+                                <i class="fas fa-shopping-cart"></i>
+                                <p>Carrinho vazio</p>
+                            </div>
+                        </div>
+                        
+                        <div class="carrinho-footer">
+                            <div class="carrinho-total">
+                                Total: R$ <span id="totalCarrinho">0.00</span>
+                            </div>
+                            <div class="flex gap-10 mt-10">
+                                <button class="btn w-100" id="btnCancelarCarrinho">
+                                    <i class="fas fa-times"></i>
+                                    Cancelar Compra
+                                </button>
+                                <button class="btn w-100" id="btnFinalizarVenda">
+                                    <i class="fas fa-check-circle"></i>
+                                    Finalizar Venda
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Formas de Pagamento -->
+                        <div id="formasPagamento" class="hidden mt-20">
+                            <h4>Forma de Pagamento</h4>
+                            <div class="formas-pagamento-grid">
+                                <button class="forma-pagamento-btn" data-pagamento="dinheiro">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                    <span>Dinheiro</span>
+                                </button>
+                                <button class="forma-pagamento-btn" data-pagamento="cartao">
+                                    <i class="fas fa-credit-card"></i>
+                                    <span>Cartão</span>
+                                </button>
+                                <button class="forma-pagamento-btn" data-pagamento="pix">
+                                    <i class="fas fa-qrcode"></i>
+                                    <span>PIX</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Seção de Troco (aparece apenas para dinheiro) -->
+                            <div id="trocoSection" class="hidden mt-20">
+                                <div class="input-group">
+                                    <label for="valorPago">Valor Recebido (R$):</label>
+                                    <input type="number" step="0.01" id="valorPago" placeholder="0.00">
+                                </div>
+                                <div class="troco-display" id="trocoDisplay">
+                                    Troco: R$ <span id="valorTroco">0.00</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-10 mt-20">
+                                <button class="btn btn-voltar w-100" id="btnVoltarPagamento">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Voltar
+                                </button>
+                                <button class="btn w-100" id="btnConcluirVenda">
+                                    <i class="fas fa-check"></i>
+                                    Concluir Venda
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- Modal Cupom Fiscal -->
+    <div id="cupomModal" class="modal">
+        <div class="modal-content">
+            <div class="cupom" id="cupomContent">
+                <div class="cupom-header">
+                    <h3>ESTOQUE MESTRE</h3>
+                    <p>CUPOM FISCAL</p>
+                    <div id="cupomData"></div>
+                    <div id="cupomOperador"></div>
+                </div>
+                <div id="cupomItens"></div>
+                <div class="cupom-item">
+                    <span>TOTAL:</span>
+                    <span id="cupomTotal"></span>
+                </div>
+                <div id="cupomPagamento"></div>
+                <div id="cupomTroco"></div>
+                <div class="text-center mt-20">
+                    <p>********************************</p>
+                    <p>*** OBRIGADO VOLTE SEMPRE ***</p>
+                    <p>********************************</p>
+                </div>
+            </div>
+            <div class="flex gap-10 mt-20">
+                <button class="btn w-100" id="btnFecharCupom">
+                    <i class="fas fa-times"></i>
+                    Fechar
+                </button>
+                <button class="btn w-100" id="btnImprimirCupom">
+                    <i class="fas fa-print"></i>
+                    Imprimir Cupom
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Quantidade Produto -->
+    <div id="quantidadeModal" class="modal">
+        <div class="modal-content">
+            <h3 id="quantidadeProdutoNome"></h3>
+            <div class="input-group">
+                <label for="quantidadeInput">Quantidade:</label>
+                <input type="number" step="0.001" id="quantidadeInput" value="1" min="0.001">
+                <span class="info-senha" id="quantidadeInfo"></span>
+            </div>
+            <div class="flex gap-10 mt-20">
+                <button class="btn btn-voltar w-100" id="btnCancelarQuantidade">
+                    <i class="fas fa-times"></i>
+                    Cancelar
+                </button>
+                <button class="btn w-100" id="btnConfirmarQuantidade">
+                    <i class="fas fa-check"></i>
+                    Adicionar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
