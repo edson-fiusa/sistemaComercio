@@ -15,18 +15,20 @@
     padding: 0;
     box-sizing: border-box;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    
 }
 
 body {
     background-color: var(--cinza-claro);
     color: var(--cinza-escuro);
-    min-height: 100vh;
+    height: 110vh;
 }
 
 .container {
     max-width: 1200px;
     margin: 0 auto;
     height: 45px;
+    
 }
 
 /* Header */
@@ -38,6 +40,7 @@ header {
     position: sticky;
     top: 0;
     z-index: 100;
+    
 }
 
 .logo {
@@ -64,6 +67,7 @@ header {
     align-items: center;
     min-height: 80vh;
     padding: 20px;
+
 }
 
 .login-box {
@@ -74,11 +78,13 @@ header {
     width: 100%;
     max-width: 400px;
     text-align: center;
+
 }
 
 .login-box h2 {
     color: var(--verde-primario);
     margin-bottom: 25px;
+
 }
 
 .input-group {
@@ -114,6 +120,7 @@ header {
     align-items: center;
     justify-content: center;
     gap: 8px;
+    
 }
 
 .btn:hover {
@@ -187,6 +194,7 @@ header {
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.08);
     margin-bottom: 30px;
+  
 }
 
 .form-container h2 {
@@ -194,6 +202,7 @@ header {
     margin-bottom: 20px;
     padding-bottom: 10px;
     border-bottom: 2px solid var(--verde-claro);
+    
 }
 
 .form-grid {
@@ -251,7 +260,8 @@ tr:hover {
     color: white;
     padding: 15px;
     border-radius: 10px 10px 0 0;
-    margin-bottom: 15px;
+    margin-bottom: 5px;
+    height: 80px;
 }
 
 .pdv-main {
@@ -259,10 +269,12 @@ tr:hover {
     flex: 1;
     overflow: hidden;
     gap: 15px;
+    
 }
 
 .produtos-section {
     flex: 3;
+    
     padding: 20px;
     background-color: var(--branco);
     overflow-y: auto;
@@ -271,9 +283,10 @@ tr:hover {
 }
 
 .carrinho-section {
-    flex: 2;
+    flex: 3;
     padding: 20px;
-    background-color: #f8f9fa;
+    height: 30em;
+    background-color: #ccd3cb;
     border-radius: 8px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.08);
     display: flex;
@@ -300,7 +313,8 @@ tr:hover {
 }
 
 .carrinho-total-small {
-    font-size: 1.2rem;
+    display: none;
+    font-size: 1rem;
     font-weight: bold;
     color: var(--verde-primario);
     background-color: #e8f5e9;
