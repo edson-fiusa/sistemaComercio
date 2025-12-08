@@ -1158,9 +1158,6 @@ class InterfacePDV {
                             <small class="text-muted">Valor unitário: R$ ${item.preco.toFixed(2)}/${item.unidade === 'unidade' ? 'un' : item.unidade}</small>
                         </div>
                         <div class="carrinho-item-acoes">
-                         
-                            <span style="min-width: 50px; text-align: center;">${item.quantidade.toFixed(3)}</span>
-                    
                             <button class="btn btn-small btn-vermelho remover" data-index="${index}" title="Remover">
                                 <i class="fas fa-trash"></i>
                             </button>
