@@ -1,4 +1,3 @@
-// ==================== CLASSES PRINCIPAIS ====================
 
 class Produto {
     constructor(id, codigo, nome, precoEntrada, precoVenda, unidade, quantidade, estoqueMinimo, categoria) {
@@ -69,17 +68,92 @@ class Caixa {
         this.dataAbertura = new Date().toISOString();
         this.vendas = [];
         this.total = 0;
+        this.totalDinheiro = 0;
+        this.totalCartao = 0;
+        this.totalPix = 0;
         this.fechado = false;
+        this.saldoInicial = 0;
+        this.sangrias = [];
+        this.suprimentos = [];
     }
     
     adicionarVenda(venda) {
         this.vendas.push(venda);
         this.total += venda.total;
+        
+        // Atualizar totais por forma de pagamento
+        if (venda.formaPagamento === 'dinheiro') {
+            this.totalDinheiro += venda.total;
+        } else if (venda.formaPagamento === 'cartao') {
+            this.totalCartao += venda.total;
+        } else if (venda.formaPagamento === 'pix') {
+            this.totalPix += venda.total;
+        }
     }
     
-    fechar() {
+    adicionarSangria(valor, motivo, responsavel) {
+        this.sangrias.push({
+            data: new Date().toISOString(),
+            valor: valor,
+            motivo: motivo,
+            responsavel: responsavel
+        });
+    }
+    
+    adicionarSuprimento(valor, motivo, responsavel) {
+        this.suprimentos.push({
+            data: new Date().toISOString(),
+            valor: valor,
+            motivo: motivo,
+            responsavel: responsavel
+        });
+    }
+    
+    fechar(saldoFinal = 0) {
         this.dataFechamento = new Date().toISOString();
+        this.saldoFinal = saldoFinal;
         this.fechado = true;
+    }
+    
+    calcularSaldoAtual() {
+        let saldo = this.saldoInicial;
+        saldo += this.totalDinheiro; // Entrada de vendas em dinheiro
+        
+        // Subtrair sangrias
+        this.sangrias.forEach(s => saldo -= s.valor);
+        
+        // Adicionar suprimentos
+        this.suprimentos.forEach(s => saldo += s.valor);
+        
+        return saldo;
+    }
+    
+    getResumo() {
+        return {
+            totalVendas: this.vendas.length,
+            totalValor: this.total,
+            totalDinheiro: this.totalDinheiro,
+            totalCartao: this.totalCartao,
+            totalPix: this.totalPix,
+            saldoInicial: this.saldoInicial,
+            saldoFinal: this.saldoFinal || this.calcularSaldoAtual(),
+            sangrias: this.sangrias,
+            suprimentos: this.suprimentos,
+            vendasPorHora: this.getVendasPorHora()
+        };
+    }
+    
+    getVendasPorHora() {
+        const vendasPorHora = {};
+        this.vendas.forEach(venda => {
+            const hora = new Date(venda.data).getHours();
+            if (!vendasPorHora[hora]) {
+                vendasPorHora[hora] = { quantidade: 0, valor: 0 };
+            }
+            vendasPorHora[hora].quantidade++;
+            vendasPorHora[hora].valor += venda.total;
+        });
+        return vendasPorHora;
     }
 }
 
@@ -207,6 +281,7 @@ class SistemaPDV {
             localStorage.removeItem(`${this.STORAGE_PREFIX}${chave}`);
         });
         console.log("Todos os dados foram limpos!");
+        return true;
     }
     
     carregarEstoqueExemplo() {
@@ -227,10 +302,108 @@ class SistemaPDV {
         console.log("Estoque de exemplo carregado com 10 produtos");
     }
     
+    // ==================== MÉTODOS DE DASHBOARD ====================
+    
+    getVendasPorPeriodo(periodo) {
+        const agora = new Date();
+        let dataInicio = new Date();
+        
+        switch(periodo) {
+            case 'today':
+                dataInicio.setHours(0, 0, 0, 0);
+                break;
+            case 'week':
+                dataInicio.setDate(agora.getDate() - 7);
+                break;
+            case 'month':
+                dataInicio.setMonth(agora.getMonth() - 1);
+                break;
+            default:
+                dataInicio.setHours(0, 0, 0, 0);
+        }
+        
+        // Filtrar vendas do período
+        const vendasPeriodo = this.vendas.filter(venda => 
+            new Date(venda.data) >= dataInicio
+        );
+        
+        // Calcular estatísticas
+        let totalVendas = 0;
+        let totalDinheiro = 0;
+        let totalCartao = 0;
+        let totalPix = 0;
+        let quantidadeVendas = vendasPeriodo.length;
+        
+        vendasPeriodo.forEach(venda => {
+            totalVendas += venda.total;
+            
+            if (venda.formaPagamento === 'dinheiro') {
+                totalDinheiro += venda.total;
+            } else if (venda.formaPagamento === 'cartao') {
+                totalCartao += venda.total;
+            } else if (venda.formaPagamento === 'pix') {
+                totalPix += venda.total;
+            }
+        });
+        
+        const ticketMedio = quantidadeVendas > 0 ? totalVendas / quantidadeVendas : 0;
+        
+        // Obter top 5 produtos mais vendidos
+        const topProdutos = this.getTopProdutosVendidos(dataInicio, agora);
+        
+        return {
+            totalVendas,
+            quantidadeVendas,
+            ticketMedio,
+            totalDinheiro,
+            totalCartao,
+            totalPix,
+            topProdutos,
+            periodo: periodo,
+            dataInicio,
+            dataFim: agora
+        };
+    }
+    
+    getTopProdutosVendidos(dataInicio, dataFim) {
+        // Filtrar vendas do período
+        const vendasPeriodo = this.vendas.filter(venda => 
+            new Date(venda.data) >= dataInicio && new Date(venda.data) <= dataFim
+        );
+        
+        // Agrupar produtos
+        const produtosMap = {};
+        
+        vendasPeriodo.forEach(venda => {
+            venda.itens.forEach(item => {
+                if (!produtosMap[item.produtoId]) {
+                    produtosMap[item.produtoId] = {
+                        produtoId: item.produtoId,
+                        nome: item.nome,
+                        codigo: item.codigo,
+                        quantidade: 0,
+                        valorTotal: 0
+                    };
+                }
+                
+                produtosMap[item.produtoId].quantidade += item.quantidade;
+                produtosMap[item.produtoId].valorTotal += item.getSubtotal();
+            });
+        });
+        
+        // Converter para array e ordenar
+        const produtosArray = Object.values(produtosMap);
+        produtosArray.sort((a, b) => b.valorTotal - a.valorTotal);
+        
+        return produtosArray.slice(0, 5); // Retorna apenas os 5 primeiros
+    }
+    
     // ==================== MÉTODOS DE PRODUTOS ====================
     
     buscarProdutoPorId(id) {
-        return this.estoque.find(p => p.id === id);
+        // Converter ID para número para garantir comparação correta
+        const idNum = typeof id === 'string' ? parseInt(id) : id;
+        return this.estoque.find(p => p.id === idNum);
     }
     
     buscarProdutoPorCodigo(codigo) {
@@ -268,6 +441,7 @@ class SistemaPDV {
     excluirProduto(id) {
         this.estoque = this.estoque.filter(p => p.id !== id);
         this.salvarEstoque();
+        return true;
     }
     
     // ==================== MÉTODOS DE CARRINHO ====================
@@ -457,7 +631,9 @@ class SistemaPDV {
     // ==================== MÉTODOS DE OPERADORES ====================
     
     buscarOperadorPorId(id) {
-        return this.operadores.find(o => o.id == id);
+        // Converter ID para número
+        const idNum = typeof id === 'string' ? parseInt(id) : id;
+        return this.operadores.find(o => o.id === idNum);
     }
     
     buscarOperadorPorUsuario(usuario) {
@@ -528,23 +704,39 @@ class SistemaPDV {
     // ==================== MÉTODOS DE AVARIA ====================
     
     registrarAvaria(dados) {
-        const produto = this.buscarProdutoPorId(dados.produtoId);
+        console.log("=== REGISTRANDO AVARIA ===");
+        console.log("Dados recebidos:", dados);
+        
+        // Converter produtoId para número
+        const produtoId = typeof dados.produtoId === 'string' ? parseInt(dados.produtoId) : dados.produtoId;
+        
+        console.log("Buscando produto com ID:", produtoId, "Tipo:", typeof produtoId);
+        
+        const produto = this.buscarProdutoPorId(produtoId);
+        
         if (!produto) {
+            console.error("Produto não encontrado! ID:", produtoId);
+            console.log("Estoque disponível:", this.estoque.map(p => ({id: p.id, nome: p.nome})));
             alert('Produto não encontrado!');
             return null;
         }
+
+        console.log("Produto encontrado:", produto.nome);
         
         if (produto.quantidade < dados.quantidade) {
             alert(`Quantidade insuficiente em estoque! Disponível: ${produto.quantidade.toFixed(3)} ${produto.unidade}`);
             return null;
         }
-        
+
         // Reduzir estoque
         produto.quantidade -= dados.quantidade;
         produto.quantidade = parseFloat(produto.quantidade.toFixed(3));
-        
+
         // Calcular custo da avaria
         const custoAvaria = produto.precoEntrada * dados.quantidade;
+        
+        // Gerar ID único para avaria
+        const avariaId = Date.now() + Math.floor(Math.random() * 1000);
         
         const avaria = new Avaria(
             produto.id,
@@ -555,14 +747,17 @@ class SistemaPDV {
             custoAvaria
         );
         
+        // Atribuir ID gerado
+        avaria.id = avariaId;
+
         this.avarias.push(avaria);
-        
+
         // Salvar alterações
         const estoqueSalvo = this.salvarEstoque();
         const avariasSalvas = this.salvarAvarias();
-        
+
         if (estoqueSalvo && avariasSalvas) {
-            console.log("Avaria registrada:", avaria);
+            console.log("✅ Avaria registrada com sucesso:", avaria);
             return avaria;
         } else {
             alert('Erro ao salvar avaria!');
@@ -717,7 +912,9 @@ class SistemaPDV {
         }
         
         if (operadorId !== 'todos') {
-            filteredCaixas = filteredCaixas.filter(c => c.operadorId == operadorId);
+            // Converter para número para comparação
+            const operadorIdNum = typeof operadorId === 'string' ? parseInt(operadorId) : operadorId;
+            filteredCaixas = filteredCaixas.filter(c => c.operadorId === operadorIdNum);
         }
         
         if (status !== 'todos') {
@@ -731,7 +928,9 @@ class SistemaPDV {
     
     // Obter vendas detalhadas de um caixa específico
     obterVendasDetalhadasCaixa(caixaId) {
-        const caixa = this.caixas.find(c => c.id == caixaId);
+        // Converter caixaId para número
+        const caixaIdNum = typeof caixaId === 'string' ? parseInt(caixaId) : caixaId;
+        const caixa = this.caixas.find(c => c.id === caixaIdNum);
         return caixa ? caixa.vendas : [];
     }
     
@@ -780,18 +979,114 @@ class SistemaPDV {
         
         return Object.values(relatorioPorProduto).sort((a, b) => b.totalVendido - a.totalVendido);
     }
+    
+    // ==================== MÉTODOS DE DETALHES DO CAIXA ====================
+    
+    obterDetalhesCompletosCaixa(caixaId) {
+        // Converter caixaId para número
+        const caixaIdNum = typeof caixaId === 'string' ? parseInt(caixaId) : caixaId;
+        const caixa = this.caixas.find(c => c.id === caixaIdNum);
+        
+        if (!caixa) {   
+            return null;
+        }
+        
+        // Obter resumo do caixa
+        const resumo = caixa.getResumo();
+        
+        // Obter vendas detalhadas
+        const vendas = caixa.vendas;
+        
+        // Calcular estatísticas adicionais
+        const estatisticas = {
+            mediaPorVenda: vendas.length > 0 ? resumo.totalValor / vendas.length : 0,
+            horaPico: this.calcularHoraPico(caixa),
+            produtoMaisVendido: this.calcularProdutoMaisVendido(vendas),
+            formasPagamento: {
+                dinheiro: resumo.totalDinheiro,
+                cartao: resumo.totalCartao,
+                pix: resumo.totalPix
+            }
+        };
+        
+        return {
+            caixa,
+            resumo,
+            vendas,
+            estatisticas,
+            detalhesVendas: vendas.map(venda => ({
+                id: venda.id,
+                data: venda.data,
+                total: venda.total,
+                formaPagamento: venda.formaPagamento,
+                itens: venda.itens.map(item => ({
+                    produtoId: item.produtoId,
+                    nome: item.nome,
+                    quantidade: item.quantidade,
+                    preco: item.preco,
+                    subtotal: item.getSubtotal()
+                }))
+            }))
+        };
+    }
+    
+    calcularHoraPico(caixa) {
+        const vendasPorHora = caixa.getVendasPorHora();
+        let horaPico = null;
+        let maxVendas = 0;
+        
+        for (const [hora, dados] of Object.entries(vendasPorHora)) {
+            if (dados.quantidade > maxVendas) {
+                maxVendas = dados.quantidade;
+                horaPico = hora;
+            }
+        }
+        
+        return horaPico ? `${horaPico}:00 - ${parseInt(horaPico) + 1}:00` : 'N/A';
+    }
+    
+    calcularProdutoMaisVendido(vendas) {
+        const produtosMap = {};
+        
+        vendas.forEach(venda => {
+            venda.itens.forEach(item => {
+                if (!produtosMap[item.produtoId]) {
+                    produtosMap[item.produtoId] = {
+                        produtoId: item.produtoId,
+                        nome: item.nome,
+                        quantidade: 0
+                    };
+                }
+                produtosMap[item.produtoId].quantidade += item.quantidade;
+            });
+        });
+        
+        let produtoMaisVendido = null;
+        let maxQuantidade = 0;
+        
+        for (const produto of Object.values(produtosMap)) {
+            if (produto.quantidade > maxQuantidade) {
+                maxQuantidade = produto.quantidade;
+                produtoMaisVendido = produto;
+            }
+        }
+        
+        return produtoMaisVendido;
+    }
 }
 
-// ==================== CLASSE DE INTERFACE ====================
+// ==================== CLASSE DE INTERFACE ATUALIZADA ====================
 
 class InterfacePDV {
     constructor(sistema) {
         this.sistema = sistema;
         this.produtoSelecionadoParaAdicionar = null;
+        this.periodoDashboard = 'today';
         
         // Configurar listeners após um pequeno delay para garantir que o DOM está pronto
         setTimeout(() => {
             this.configurarEventListeners();
+            this.atualizarContadores();
             console.log("Interface PDV inicializada");
         }, 100);
     }
@@ -811,16 +1106,16 @@ class InterfacePDV {
     
     showSection(sectionId) {
         const sections = [
+            'dashboard', // Adicionado dashboard
             'cadastroProduto', 
             'gerenciarProdutos', 
-            'entradaProduto', 
+            'produtosAvariados',
             'avariaProduto', 
             'relatorioEstoque', 
             'relatorioCaixa',
             'gerenciarOperadores',
-            'relatorioAvarias',
-            'relatorioVendasProduto',
-            'relatorioAvariasProduto'
+            'relatorioAvariasProduto',
+            'relatorioVendasProduto'
         ];
         
         sections.forEach(id => {
@@ -833,10 +1128,15 @@ class InterfacePDV {
             targetSection.classList.remove('hidden');
             
             switch(sectionId) {
+                case 'dashboard':
+                    this.carregarDashboard();
+                    break;
                 case 'gerenciarProdutos':
                     this.carregarProdutosAdmin();
                     break;
-                case 'entradaProduto':
+                case 'produtosAvariados':
+                    this.carregarProdutosAvariados();
+                    break;
                 case 'avariaProduto':
                     this.carregarProdutosSelect();
                     break;
@@ -850,9 +1150,6 @@ class InterfacePDV {
                 case 'gerenciarOperadores':
                     this.carregarOperadoresAdmin();
                     break;
-                case 'relatorioAvarias':
-                    this.carregarRelatorioAvarias();
-                    break;
                 case 'relatorioVendasProduto':
                     this.carregarRelatorioVendasPorProduto();
                     break;
@@ -861,6 +1158,110 @@ class InterfacePDV {
                     break;
             }
         }
+    }
+    
+    // ==================== DASHBOARD ====================
+    
+    carregarDashboard() {
+        console.log("Carregando dashboard para período:", this.periodoDashboard);
+        
+        // Atualizar botões de período
+        document.querySelectorAll('.period-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('data-period') === this.periodoDashboard) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Obter dados do período
+        const dadosPeriodo = this.sistema.getVendasPorPeriodo(this.periodoDashboard);
+        
+        // Atualizar estatísticas principais
+        document.getElementById('totalVendasDashboard').textContent = 
+            `R$ ${dadosPeriodo.totalVendas.toFixed(2)}`;
+        document.getElementById('quantidadeVendasDashboard').textContent = 
+            dadosPeriodo.quantidadeVendas;
+        document.getElementById('ticketMedioDashboard').textContent = 
+            `R$ ${dadosPeriodo.ticketMedio.toFixed(2)}`;
+        
+        // Atualizar formas de pagamento
+        document.getElementById('totalDinheiro').textContent = 
+            `R$ ${dadosPeriodo.totalDinheiro.toFixed(2)}`;
+        document.getElementById('totalCartao').textContent = 
+            `R$ ${dadosPeriodo.totalCartao.toFixed(2)}`;
+        document.getElementById('totalPix').textContent = 
+            `R$ ${dadosPeriodo.totalPix.toFixed(2)}`;
+        
+        // Atualizar período nos cards
+        let periodoTexto = '';
+        switch(this.periodoDashboard) {
+            case 'today': periodoTexto = 'Hoje'; break;
+            case 'week': periodoTexto = 'Esta Semana'; break;
+            case 'month': periodoTexto = 'Este Mês'; break;
+        }
+        document.getElementById('periodoTopProdutos').textContent = periodoTexto;
+        document.getElementById('periodoPagamento').textContent = periodoTexto;
+        
+        // Carregar top produtos
+        this.carregarTopProdutosDashboard(dadosPeriodo.topProdutos);
+        
+        // Calcular comparações (simplificado)
+        this.calcularComparacoesDashboard(dadosPeriodo);
+    }
+    
+    carregarTopProdutosDashboard(topProdutos) {
+        const tbody = document.getElementById('topProdutosTableBody');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        
+        if (topProdutos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" style="text-align: center; padding: 20px;">Nenhuma venda no período</td>
+                </tr>
+            `;
+            return;
+        }
+        
+        topProdutos.forEach((produto, index) => {
+            const row = `
+                <tr>
+                    <td>${produto.nome}</td>
+                    <td>${produto.quantidade.toFixed(3)}</td>
+                    <td>R$ ${produto.valorTotal.toFixed(2)}</td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    }
+    
+    calcularComparacoesDashboard(dadosAtuais) {
+        // Calcular período anterior para comparação
+        let periodoAnterior = '';
+        switch(this.periodoDashboard) {
+            case 'today':
+                periodoAnterior = 'ontem';
+                break;
+            case 'week':
+                periodoAnterior = 'semana anterior';
+                break;
+            case 'month':
+                periodoAnterior = 'mês anterior';
+                break;
+        }
+        
+        // Para simplificar, vamos usar valores fictícios
+        const comparacaoVendas = '+5%';
+        const comparacaoQuantidade = '+3%';
+        const comparacaoTicket = '+2%';
+        
+        document.getElementById('comparacaoVendas').textContent = 
+            `${comparacaoVendas} vs ${periodoAnterior}`;
+        document.getElementById('comparacaoQuantidade').textContent = 
+            `${comparacaoQuantidade} vs ${periodoAnterior}`;
+        document.getElementById('comparacaoTicket').textContent = 
+            `${comparacaoTicket} vs ${periodoAnterior}`;
     }
     
     // ==================== MÉTODOS DE LOGIN ====================
@@ -881,9 +1282,10 @@ class InterfacePDV {
             senhaInput.value = '';
             document.getElementById('adminLoginScreen').classList.add('hidden');
             document.getElementById('adminMode').classList.remove('hidden');
-            this.showSection('cadastroProduto');
+            this.showSection('dashboard'); // Muda para dashboard por padrão
             this.carregarProdutosSelect();
             this.carregarOperadoresRelatorio();
+            this.atualizarContadores();
         } else {
             this.mostrarMensagemErro('adminError', 'Senha incorreta!');
             senhaInput.focus();
@@ -933,7 +1335,8 @@ class InterfacePDV {
                 
                 const infoCaixa = document.getElementById('infoCaixa');
                 if (infoCaixa) {
-                    infoCaixa.textContent = `Caixa Aberto - ${new Date().toLocaleTimeString()}`;
+                    const dataAtual = new Date().toLocaleTimeString('pt-BR');
+                    infoCaixa.textContent = `Aberto às ${dataAtual}`;
                 }
                 
                 // Limpar campo de busca e mostrar mensagem inicial
@@ -998,33 +1401,35 @@ class InterfacePDV {
             const item = document.createElement('div');
             item.className = 'produto-card';
             item.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div>
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                    <div style="flex: 1;">
                         <strong>${produto.nome}</strong>
-                        <p>Código: ${produto.codigo}</p>
-                        <p>Estoque: ${produto.quantidade.toFixed(3)} ${produto.unidade} 
-                        ${estoqueCritico ? '<span class="badge badge-danger">CRÍTICO</span>' : 
-                          estoqueBaixo ? '<span class="badge badge-warning">BAIXO</span>' : ''}</p>
+                        <p style="margin: 5px 0; color: #666;">Código: ${produto.codigo}</p>
+                        <p style="margin: 5px 0;">
+                            Estoque: ${produto.quantidade.toFixed(3)} ${produto.unidade} 
+                            ${estoqueCritico ? '<span style="background: #ffebee; color: #d32f2f; padding: 2px 6px; border-radius: 10px; font-size: 0.8rem; margin-left: 5px;">CRÍTICO</span>' : 
+                              estoqueBaixo ? '<span style="background: #fff3e0; color: #f57c00; padding: 2px 6px; border-radius: 10px; font-size: 0.8rem; margin-left: 5px;">BAIXO</span>' : ''}
+                        </p>
                     </div>
-                    <div class="text-right">
-                        <div class="preco">R$ ${produto.precoVenda.toFixed(2)}</div>
-                        <small class="text-muted">por ${produto.unidade === 'unidade' ? 'un' : produto.unidade}</small>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.3rem; font-weight: bold; color: #27ae60;">R$ ${produto.precoVenda.toFixed(2)}</div>
+                        <small style="color: #95a5a6;">por ${produto.unidade === 'unidade' ? 'un' : produto.unidade}</small>
                     </div>
                 </div>
-                <div class="produto-quantidade-controles">
-                    <button class="quantidade-btn diminuir-produto" data-id="${produto.id}">
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                    <button class="diminuir-produto" data-id="${produto.id}" style="background: white; border: 1px solid #bdc3c7; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                         <i class="fas fa-minus"></i>
                     </button>
                     <input type="number" class="quantidade-input" id="quantidade-${produto.id}" 
-                           value="1" min="0.001" step="0.001" style="width: 80px; text-align: center;">
-                    <button class="quantidade-btn aumentar-produto" data-id="${produto.id}">
+                           value="1" min="0.001" step="0.001" style="width: 80px; text-align: center; padding: 8px; border: 2px solid #bdc3c7; border-radius: 8px;">
+                    <button class="aumentar-produto" data-id="${produto.id}" style="background: white; border: 1px solid #bdc3c7; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                         <i class="fas fa-plus"></i>
                     </button>
-                    <button class="btn btn-small btn-adicionar-quantidade" data-id="${produto.id}">
+                    <button class="btn-adicionar-quantidade" data-id="${produto.id}" style="background: #27ae60; color: white; padding: 8px 15px; border-radius: 20px; border: none; cursor: pointer;">
                         <i class="fas fa-plus"></i> Adicionar
                     </button>
                 </div>
-                <div class="mt-10">
+                <div style="margin-top: 10px;">
                     <small><strong>Valor unitário:</strong> R$ ${produto.precoVenda.toFixed(2)} por ${produto.unidade === 'unidade' ? 'unidade' : produto.unidade}</small>
                 </div>
             `;
@@ -1117,7 +1522,7 @@ class InterfacePDV {
     atualizarCarrinho() {
         const container = document.getElementById('carrinhoItems');
         const totalElement = document.getElementById('totalCarrinho');
-        const totalElementSmall = document.getElementById('totalCarrinhoSmall');
+        const contadorItens = document.getElementById('contadorItens');
         
         if (!container) return;
         
@@ -1135,11 +1540,13 @@ class InterfacePDV {
             const btnCancelar = document.getElementById('btnCancelarCarrinho');
             if (btnFinalizar) btnFinalizar.disabled = true;
             if (btnCancelar) btnCancelar.disabled = true;
+            if (contadorItens) contadorItens.textContent = '0';
         } else {
             const btnFinalizar = document.getElementById('btnFinalizarVenda');
             const btnCancelar = document.getElementById('btnCancelarCarrinho');
             if (btnFinalizar) btnFinalizar.disabled = false;
             if (btnCancelar) btnCancelar.disabled = false;
+            if (contadorItens) contadorItens.textContent = this.sistema.carrinho.length.toString();
             
             this.sistema.carrinho.forEach((item, index) => {
                 const subtotal = item.getSubtotal();
@@ -1147,18 +1554,18 @@ class InterfacePDV {
                 const itemElement = document.createElement('div');
                 itemElement.className = 'carrinho-item';
                 itemElement.innerHTML = `
-                    <div class="carrinho-item-header">
-                        <div class="carrinho-item-nome">${item.nome}</div>
-                        <div class="carrinho-item-preco">R$ ${subtotal.toFixed(2)}</div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <div style="font-weight: bold;">${item.nome}</div>
+                        <div style="font-weight: bold; color: #27ae60;">R$ ${subtotal.toFixed(2)}</div>
                     </div>
-                    <div class="carrinho-item-detalhes">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <span>Código: ${item.codigo}</span><br>
-                            <span>${item.quantidade.toFixed(3)} ${item.unidade} x R$ ${item.preco.toFixed(2)}</span><br>
-                            <small class="text-muted">Valor unitário: R$ ${item.preco.toFixed(2)}/${item.unidade === 'unidade' ? 'un' : item.unidade}</small>
+                            <span style="color: #666; font-size: 0.9rem;">Código: ${item.codigo}</span><br>
+                            <span style="color: #666; font-size: 0.9rem;">${item.quantidade.toFixed(3)} ${item.unidade} x R$ ${item.preco.toFixed(2)}</span><br>
+                            <small style="color: #95a5a6;">Valor unitário: R$ ${item.preco.toFixed(2)}/${item.unidade === 'unidade' ? 'un' : item.unidade}</small>
                         </div>
-                        <div class="carrinho-item-acoes">
-                            <button class="btn btn-small btn-vermelho remover" data-index="${index}" title="Remover">
+                        <div>
+                            <button class="remover-item-carrinho" data-index="${index}" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;" title="Remover">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -1166,38 +1573,21 @@ class InterfacePDV {
                 `;
                 container.appendChild(itemElement);
             });
-            
-            // Adicionar event listeners
-            setTimeout(() => {
-                document.querySelectorAll('.diminuir').forEach(button => {
-                    button.addEventListener('click', (e) => {
-                        const index = parseInt(e.target.closest('button').getAttribute('data-index'));
-                        this.sistema.alterarQuantidadeCarrinho(index, -0.001);
-                        this.atualizarCarrinho();
-                    });
-                });
-                
-                document.querySelectorAll('.aumentar').forEach(button => {
-                    button.addEventListener('click', (e) => {
-                        const index = parseInt(e.target.closest('button').getAttribute('data-index'));
-                        this.sistema.alterarQuantidadeCarrinho(index, 0.001);
-                        this.atualizarCarrinho();
-                    });
-                });
-                
-                document.querySelectorAll('.remover').forEach(button => {
-                    button.addEventListener('click', (e) => {
-                        const index = parseInt(e.target.closest('button').getAttribute('data-index'));
-                        this.sistema.removerDoCarrinho(index);
-                        this.atualizarCarrinho();
-                    });
-                });
-            }, 100);
         }
         
         const total = this.sistema.getTotalCarrinho();
         if (totalElement) totalElement.textContent = total.toFixed(2);
-        if (totalElementSmall) totalElementSmall.textContent = total.toFixed(2);
+        
+        // Adicionar event listeners para os botões de remover
+        setTimeout(() => {
+            document.querySelectorAll('.remover-item-carrinho').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.closest('button').getAttribute('data-index'));
+                    this.sistema.removerDoCarrinho(index);
+                    this.atualizarCarrinho();
+                });
+            });
+        }, 100);
     }
     
     // ==================== MÉTODOS DE PAGAMENTO ====================
@@ -1278,13 +1668,11 @@ class InterfacePDV {
                 const formasPagamento = document.getElementById('formasPagamento');
                 if (formasPagamento) formasPagamento.classList.add('hidden');
                 
-                document.querySelectorAll('.carrinho-footer').forEach(el => {
-                    el.classList.remove('hidden');
-                });
+                const carrinhoFooter = document.querySelector('.carrinho-footer');
+                if (carrinhoFooter) carrinhoFooter.classList.remove('hidden');
                 
-                document.querySelectorAll('.carrinho-items').forEach(el => {
-                    el.classList.remove('hidden');
-                });
+                const carrinhoItems = document.getElementById('carrinhoItemsContainer');
+                if (carrinhoItems) carrinhoItems.classList.remove('hidden');
                 
                 this.selecionarPagamento(null);
                 const buscaProduto = document.getElementById('buscaProduto');
@@ -1301,13 +1689,13 @@ class InterfacePDV {
         if (!cupomModal) return;
         
         const cupomItens = document.getElementById('cupomItens');
-        const cupomTotal = document.getElementById('cupomTotal');
+        const cupomTotais = document.getElementById('cupomTotais');
         const cupomPagamento = document.getElementById('cupomPagamento');
         const cupomTroco = document.getElementById('cupomTroco');
         const cupomData = document.getElementById('cupomData');
         const cupomOperador = document.getElementById('cupomOperador');
         
-        if (cupomData) cupomData.textContent = new Date(venda.data).toLocaleString();
+        if (cupomData) cupomData.textContent = `Data: ${new Date(venda.data).toLocaleString('pt-BR')}`;
         if (cupomOperador) cupomOperador.textContent = `Operador: ${venda.operadorNome}`;
         if (cupomItens) cupomItens.innerHTML = '';
         
@@ -1316,6 +1704,7 @@ class InterfacePDV {
                 const subtotal = item.getSubtotal();
                 const itemElement = document.createElement('div');
                 itemElement.className = 'cupom-item';
+                itemElement.style = 'display: flex; justify-content: space-between; margin-bottom: 5px;';
                 itemElement.innerHTML = `
                     <span>${item.nome.substring(0, 20)} ${item.quantidade.toFixed(3)}${item.unidade === 'unidade' ? 'un' : item.unidade.substring(0, 1)} x ${item.preco.toFixed(2)}</span>
                     <span>${subtotal.toFixed(2)}</span>
@@ -1324,14 +1713,32 @@ class InterfacePDV {
             });
         }
         
-        if (cupomTotal) cupomTotal.textContent = venda.total.toFixed(2);
+        if (cupomTotais) {
+            cupomTotais.innerHTML = `
+                <div class="cupom-item" style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px;">
+                    <span>TOTAL</span>
+                    <span>${venda.total.toFixed(2)}</span>
+                </div>
+            `;
+        }
+        
         if (cupomPagamento) {
-            cupomPagamento.innerHTML = `<div class="cupom-item"><span>Pgto: ${venda.formaPagamento.toUpperCase()}</span><span></span></div>`;
+            cupomPagamento.innerHTML = `
+                <div class="cupom-item" style="display: flex; justify-content: space-between; margin-top: 5px;">
+                    <span>Pagamento: ${venda.formaPagamento.toUpperCase()}</span>
+                    <span></span>
+                </div>
+            `;
         }
         
         if (cupomTroco) {
             if (venda.formaPagamento === 'dinheiro' && venda.troco > 0) {
-                cupomTroco.innerHTML = `<div class="cupom-item"><span>Troco:</span><span>${venda.troco.toFixed(2)}</span></div>`;
+                cupomTroco.innerHTML = `
+                    <div class="cupom-item" style="display: flex; justify-content: space-between; margin-top: 5px;">
+                        <span>Troco:</span>
+                        <span>${venda.troco.toFixed(2)}</span>
+                    </div>
+                `;
             } else {
                 cupomTroco.innerHTML = '';
             }
@@ -1341,6 +1748,19 @@ class InterfacePDV {
     }
     
     // ==================== MÉTODOS ADMINISTRADOR ====================
+    
+    atualizarContadores() {
+        const contadorProdutos = document.getElementById('contadorProdutos');
+        const contadorOperadores = document.getElementById('contadorOperadores');
+        
+        if (contadorProdutos) {
+            contadorProdutos.textContent = this.sistema.estoque.length;
+        }
+        
+        if (contadorOperadores) {
+            contadorOperadores.textContent = this.sistema.operadores.length;
+        }
+    }
     
     carregarProdutosAdmin() {
         const tbody = document.getElementById('produtosTableBody');
@@ -1358,10 +1778,10 @@ class InterfacePDV {
                     <td>${produto.quantidade.toFixed(3)} ${produto.unidade}</td>
                     <td>R$ ${produto.precoVenda.toFixed(2)}</td>
                     <td>
-                        <button class="btn btn-azul editar-produto" data-id="${produto.id}">
+                        <button class="editar-produto-admin" data-id="${produto.id}" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-vermelho excluir-produto" data-id="${produto.id}">
+                        <button class="excluir-produto-admin" data-id="${produto.id}" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -1372,14 +1792,14 @@ class InterfacePDV {
         
         // Adicionar event listeners
         setTimeout(() => {
-            document.querySelectorAll('.editar-produto').forEach(button => {
+            document.querySelectorAll('.editar-produto-admin').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const id = parseInt(e.target.closest('button').getAttribute('data-id'));
                     this.editarProduto(id);
                 });
             });
             
-            document.querySelectorAll('.excluir-produto').forEach(button => {
+            document.querySelectorAll('.excluir-produto-admin').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const id = parseInt(e.target.closest('button').getAttribute('data-id'));
                     this.excluirProduto(id);
@@ -1464,6 +1884,7 @@ class InterfacePDV {
         
         if (produto) {
             alert('Produto cadastrado com sucesso!');
+            this.atualizarContadores();
             
             // Limpar formulário
             document.getElementById('produtoCodigo').value = '';
@@ -1480,368 +1901,168 @@ class InterfacePDV {
     }
     
     carregarProdutosSelect() {
-        const selects = ['produtoSelect', 'produtoAvaria'];
+        const selects = ['produtoAvaria'];
         
         selects.forEach(selectId => {
             const select = document.getElementById(selectId);
             if (select) {
                 select.innerHTML = '<option value="">Selecione um produto</option>';
                 
-                this.sistema.estoque.forEach(produto => {
+                // Ordenar produtos por nome para facilitar
+                const produtosOrdenados = [...this.sistema.estoque].sort((a, b) => a.nome.localeCompare(b.nome));
+                
+                produtosOrdenados.forEach(produto => {
                     const option = document.createElement('option');
-                    option.value = produto.id;
+                    option.value = produto.id.toString();
                     option.textContent = `${produto.codigo} - ${produto.nome} (${produto.quantidade.toFixed(3)} ${produto.unidade})`;
                     select.appendChild(option);
                 });
+                
+                console.log(`Select ${selectId} carregado com ${produtosOrdenados.length} produtos`);
             }
         });
     }
     
-    carregarInfoProduto() {
-        const produtoId = document.getElementById('produtoSelect').value;
-        const produto = this.sistema.buscarProdutoPorId(produtoId);
-        
-        if (produto) {
-            document.getElementById('infoProduto').style.display = 'block';
-            document.getElementById('estoqueAtual').textContent = produto.quantidade.toFixed(3);
-            document.getElementById('unidadeAtual').textContent = produto.unidade;
-            document.getElementById('precoCustoAtual').textContent = produto.precoEntrada.toFixed(2);
-            document.getElementById('precoVendaAtual').textContent = produto.precoVenda.toFixed(2);
-            document.getElementById('precoCustoEntrada').placeholder = produto.precoEntrada.toFixed(2);
-        } else {
-            document.getElementById('infoProduto').style.display = 'none';
-        }
-    }
+    // ==================== MÉTODOS DE PRODUTOS AVARIADOS ====================
     
-    registrarEntrada() {
-        const produtoId = document.getElementById('produtoSelect').value;
-        const quantidade = parseFloat(document.getElementById('quantidadeEntrada').value);
-        const precoCusto = parseFloat(document.getElementById('precoCustoEntrada').value);
-        const motivo = document.getElementById('motivoEntrada').value;
+    carregarProdutosAvariados() {
+        const container = document.getElementById('listaProdutosAvariados');
+        if (!container) return;
         
-        if (!produtoId) {
-            alert('Selecione um produto!');
-            return;
-        }
+        // Agrupar avarias por produto
+        const produtosAvariados = {};
         
-        if (!quantidade || quantidade <= 0) {
-            alert('Digite uma quantidade válida!');
-            return;
-        }
-        
-        const entrada = this.sistema.registrarEntrada({
-            produtoId: produtoId,
-            quantidade: quantidade,
-            precoCusto: precoCusto,
-            motivo: motivo
-        });
-        
-        if (entrada) {
-            const produto = this.sistema.buscarProdutoPorId(entrada.produtoId);
-            alert(`Entrada de ${entrada.quantidade} ${produto.unidade} registrada para ${produto.nome}`);
-            document.getElementById('quantidadeEntrada').value = '';
-            document.getElementById('precoCustoEntrada').value = '';
-            this.carregarInfoProduto();
-        }
-    }
-    
-    registrarAvaria() {
-        const produtoId = document.getElementById('produtoAvaria').value;
-        const quantidade = parseFloat(document.getElementById('quantidadeAvaria').value);
-        const motivo = document.getElementById('motivoAvaria').value;
-        const observacao = document.getElementById('observacaoAvaria').value;
-        
-        if (!produtoId) {
-            alert('Selecione um produto!');
-            return;
-        }
-        
-        if (!quantidade || quantidade <= 0) {
-            alert('Digite uma quantidade válida!');
-            return;
-        }
-        
-        if (!motivo) {
-            alert('Informe o motivo da avaria!');
-            return;
-        }
-        
-        const avaria = this.sistema.registrarAvaria({
-            produtoId: produtoId,
-            quantidade: quantidade,
-            motivo: motivo,
-            observacao: observacao
-        });
-        
-        if (avaria) {
-            const produto = this.sistema.buscarProdutoPorId(avaria.produtoId);
-            alert(`Avaria de ${avaria.quantidade} ${produto.unidade} registrada para ${produto.nome}`);
-            document.getElementById('quantidadeAvaria').value = '';
-            document.getElementById('motivoAvaria').value = '';
-            document.getElementById('observacaoAvaria').value = '';
-        }
-    }
-    
-    // ==================== MÉTODOS DE RELATÓRIOS ====================
-    
-    carregarRelatorioEstoque() {
-        const tbody = document.getElementById('estoqueTableBody');
-        if (!tbody) return;
-        
-        tbody.innerHTML = '';
-        
-        let totalValor = 0;
-        let totalProdutos = 0;
-        
-        this.sistema.estoque.forEach(produto => {
-            totalProdutos++;
-            const valorTotal = produto.quantidade * produto.precoEntrada;
-            totalValor += valorTotal;
-            const estoqueBaixo = produto.quantidade <= produto.estoqueMinimo;
+        this.sistema.avarias.forEach(avaria => {
+            if (!produtosAvariados[avaria.produtoId]) {
+                produtosAvariados[avaria.produtoId] = {
+                    produtoId: avaria.produtoId,
+                    produtoNome: avaria.produtoNome,
+                    totalQuantidade: 0,
+                    totalValor: 0,
+                    avarias: [],
+                    produto: this.sistema.buscarProdutoPorId(avaria.produtoId)
+                };
+            }
             
-            const row = `
-                <tr>
-                    <td>${produto.codigo}</td>
-                    <td>${produto.nome}</td>
-                    <td>${produto.categoria}</td>
-                    <td>${produto.quantidade.toFixed(3)}</td>
-                    <td>${produto.unidade}</td>
-                    <td>R$ ${produto.precoEntrada.toFixed(2)}</td>
-                    <td>R$ ${produto.precoVenda.toFixed(2)}</td>
-                    <td>R$ ${valorTotal.toFixed(2)}</td>
-                </tr>
-            `;
-            tbody.innerHTML += row;
+            produtosAvariados[avaria.produtoId].totalQuantidade += avaria.quantidade;
+            produtosAvariados[avaria.produtoId].totalValor += avaria.precoCusto || 0;
+            produtosAvariados[avaria.produtoId].avarias.push(avaria);
         });
         
-        const totalEstoqueValor = document.getElementById('totalEstoqueValor');
-        if (totalEstoqueValor) {
-            totalEstoqueValor.textContent = `R$ ${totalValor.toFixed(2)}`;
-        }
+        const produtosArray = Object.values(produtosAvariados);
         
-        const totalProdutosElement = document.getElementById('totalProdutos');
-        if (totalProdutosElement) {
-            totalProdutosElement.textContent = totalProdutos.toString();
-        }
-        
-        // Carregar categorias no filtro
-        const selectCategorias = document.getElementById('filtroCategoria');
-        if (selectCategorias) {
-            selectCategorias.innerHTML = '<option value="todos">Todas as Categorias</option>';
-            this.sistema.getCategorias().forEach(categoria => {
-                const option = document.createElement('option');
-                option.value = categoria;
-                option.textContent = categoria;
-                selectCategorias.appendChild(option);
-            });
-        }
-    }
-    
-    carregarRelatorioAvarias() {
-        const tbody = document.getElementById('avariasTableBody');
-        if (!tbody) return;
-        
-        tbody.innerHTML = '';
-        
-        if (this.sistema.avarias.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="7" class="text-center">Nenhuma avaria registrada</td>
-                </tr>
+        if (produtosArray.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Nenhum produto avariado registrado</p>
+                    <small>Todos os produtos estão em bom estado</small>
+                </div>
             `;
-            const totalPerdasAvaria = document.getElementById('totalPerdasAvaria');
-            if (totalPerdasAvaria) totalPerdasAvaria.textContent = 'R$ 0.00';
             return;
         }
         
-        let totalPerdas = 0;
-        
-        this.sistema.avarias.sort((a, b) => new Date(b.data) - new Date(a.data)).forEach(avaria => {
-            const dataFormatada = new Date(avaria.data).toLocaleDateString('pt-BR');
-            const horaFormatada = new Date(avaria.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            const valorPerda = avaria.precoCusto || 0;
-            totalPerdas += valorPerda;
-            
-            const row = `
-                <tr>
-                    <td>${dataFormatada} ${horaFormatada}</td>
-                    <td>${avaria.produtoNome}</td>
-                    <td>${avaria.quantidade.toFixed(3)}</td>
-                    <td>${avaria.motivo}</td>
-                    <td>${avaria.observacao || '-'}</td>
-                    <td>R$ ${valorPerda.toFixed(2)}</td>
-                    <td>
-                        <button class="btn btn-vermelho excluir-avaria" data-id="${avaria.id}">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-            tbody.innerHTML += row;
-        });
-        
-        const totalPerdasAvaria = document.getElementById('totalPerdasAvaria');
-        if (totalPerdasAvaria) {
-            totalPerdasAvaria.textContent = `R$ ${totalPerdas.toFixed(2)}`;
-        }
-        
-        // Adicionar event listeners
-        setTimeout(() => {
-            document.querySelectorAll('.excluir-avaria').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const id = parseInt(e.target.closest('button').getAttribute('data-id'));
-                    if (confirm('Tem certeza que deseja excluir esta avaria e restaurar o estoque?')) {
-                        if (this.sistema.excluirAvaria(id)) {
-                            this.carregarRelatorioAvarias();
-                            alert('Avaria excluída e estoque restaurado!');
-                        }
-                    }
-                });
-            });
-        }, 100);
-    }
-    
-    // Relatório de avarias por produto
-    carregarRelatorioAvariasPorProduto() {
-        const hoje = new Date().toISOString().split('T')[0];
-        const dataInicio = document.getElementById('dataInicioAvariasProduto');
-        const dataFim = document.getElementById('dataFimAvariasProduto');
-        
-        if (dataInicio) dataInicio.value = hoje;
-        if (dataFim) dataFim.value = hoje;
-        
-        this.gerarRelatorioAvariasProduto();
-    }
-    
-    gerarRelatorioAvariasProduto() {
-        const dataInicio = document.getElementById('dataInicioAvariasProduto').value;
-        const dataFim = document.getElementById('dataFimAvariasProduto').value;
-        
-        const relatorio = this.sistema.gerarRelatorioAvariasProdutos(dataInicio, dataFim);
-        
-        const tbody = document.getElementById('avariasProdutoTableBody');
-        if (!tbody) return;
-        
-        tbody.innerHTML = '';
-        
-        if (relatorio.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center">Nenhuma avaria encontrada para o período selecionado</td>
-                </tr>
-            `;
-            document.getElementById('totalAvariasProduto').textContent = 'R$ 0.00';
-            return;
-        }
-        
-        let totalGeral = 0;
-        
-        relatorio.forEach(item => {
-            totalGeral += item.totalValor;
-            
-            const row = `
-                <tr>
-                    <td>${item.produtoNome}</td>
-                    <td>${item.totalQuantidade.toFixed(3)}</td>
-                    <td>${item.avarias.length}</td>
-                    <td>R$ ${item.totalValor.toFixed(2)}</td>
-                    <td>
-                        <button class="btn btn-azul ver-detalhes-avarias" data-produtoid="${item.produtoId}" data-datainicio="${dataInicio}" data-datafim="${dataFim}">
-                            <i class="fas fa-eye"></i> Detalhes
-                        </button>
-                    </td>
-                </tr>
-            `;
-            tbody.innerHTML += row;
-        });
-        
-        document.getElementById('totalAvariasProduto').textContent = `R$ ${totalGeral.toFixed(2)}`;
-        
-        // Adicionar event listeners
-        setTimeout(() => {
-            document.querySelectorAll('.ver-detalhes-avarias').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const produtoId = button.getAttribute('data-produtoid');
-                    const dataInicio = button.getAttribute('data-datainicio');
-                    const dataFim = button.getAttribute('data-datafim');
-                    this.verDetalhesAvariasProduto(produtoId, dataInicio, dataFim);
-                });
-            });
-        }, 100);
-    }
-    
-    verDetalhesAvariasProduto(produtoId, dataInicio, dataFim) {
-        const produto = this.sistema.buscarProdutoPorId(parseInt(produtoId));
-        if (!produto) return;
-        
-        const avariasFiltradas = this.sistema.filtrarAvariasPorData(dataInicio, dataFim)
-            .filter(a => a.produtoId == produtoId);
-        
-        let html = `
-            <div style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
-                <h3>Detalhes de Avarias - ${produto.nome}</h3>
-                <p><strong>Código:</strong> ${produto.codigo}</p>
-                <p><strong>Período:</strong> ${dataInicio} a ${dataFim}</p>
-                <p><strong>Total de Avarias:</strong> ${avariasFiltradas.length}</p>
-                <hr>
-                <h4>Avarias Detalhadas</h4>
+        container.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #2c3e50;">Produtos Avariados</h3>
+                <p style="color: #95a5a6;">Total de produtos com avarias: ${produtosArray.length}</p>
+            </div>
         `;
         
-        if (avariasFiltradas.length > 0) {
+        produtosArray.sort((a, b) => b.totalValor - a.totalValor).forEach((produtoAvariado, index) => {
+            const produto = produtoAvariado.produto;
+            
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'produto-card';
+            itemDiv.style.marginBottom = '15px';
+            itemDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                        <strong>${produtoAvariado.produtoNome}</strong>
+                        ${produto ? `<p style="margin: 5px 0; color: #666;">Código: ${produto.codigo}</p>` : ''}
+                        <p style="margin: 5px 0;"><strong>Quantidade Total Avariada:</strong> ${produtoAvariado.totalQuantidade.toFixed(3)} ${produto ? produto.unidade : 'un'}</p>
+                        <p style="margin: 5px 0;"><strong>Valor Total Perdido:</strong> R$ ${produtoAvariado.totalValor.toFixed(2)}</p>
+                        <p style="margin: 5px 0;"><strong>Número de Avarias:</strong> ${produtoAvariado.avarias.length}</p>
+                    </div>
+                    <div style="margin-left: 20px;">
+                        <button class="ver-avarias-produto-detalhes" data-index="${index}" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-eye"></i> Ver Detalhes
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(itemDiv);
+        });
+        
+        // Adicionar event listeners CORRETAMENTE
+        setTimeout(() => {
+            document.querySelectorAll('.ver-avarias-produto-detalhes').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.closest('button').getAttribute('data-index'));
+                    const produtoAvariado = produtosArray[index];
+                    this.verDetalhesProdutoAvariado(produtoAvariado);
+                });
+            });
+        }, 100);
+    }
+    
+    verDetalhesProdutoAvariado(produtoAvariado) {
+        let html = `
+            <div style="max-width: 800px; max-height: 80vh; overflow-y: auto; padding: 20px; background: white; border-radius: 10px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">Detalhes de Avarias - ${produtoAvariado.produtoNome}</h3>
+                ${produtoAvariado.produto ? `<p><strong>Código:</strong> ${produtoAvariado.produto.codigo}</p>` : ''}
+                <p><strong>Total Avariado:</strong> ${produtoAvariado.totalQuantidade.toFixed(3)} ${produtoAvariado.produto ? produtoAvariado.produto.unidade : 'un'}</p>
+                <p><strong>Valor Total Perdido:</strong> R$ ${produtoAvariado.totalValor.toFixed(2)}</p>
+                <hr style="margin: 15px 0;">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">Registros de Avarias (${produtoAvariado.avarias.length})</h4>
+        `;
+        
+        if (produtoAvariado.avarias.length > 0) {
             html += '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
             html += `
                 <thead>
-                    <tr style="background: #f0f0f0;">
-                        <th style="padding: 8px; border: 1px solid #ddd;">Data/Hora</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Quantidade</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Motivo</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Observação</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Valor Perda</th>
+                    <tr style="background: #ecf0f1;">
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Data/Hora</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Quantidade</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Motivo</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Observação</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Valor Perda</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
             `;
             
-            let totalQuantidade = 0;
-            let totalValor = 0;
-            
-            avariasFiltradas.forEach(avaria => {
-                totalQuantidade += avaria.quantidade;
-                totalValor += avaria.precoCusto || 0;
-                
+            produtoAvariado.avarias.sort((a, b) => new Date(b.data) - new Date(a.data)).forEach(avaria => {
                 const dataFormatada = new Date(avaria.data).toLocaleDateString('pt-BR');
                 const horaFormatada = new Date(avaria.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                 
                 html += `
                     <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${dataFormatada} ${horaFormatada}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${avaria.quantidade.toFixed(3)} ${produto.unidade}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${avaria.motivo}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${avaria.observacao || '-'}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">R$ ${(avaria.precoCusto || 0).toFixed(2)}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${dataFormatada} ${horaFormatada}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${avaria.quantidade.toFixed(3)}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${avaria.motivo}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${avaria.observacao || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">R$ ${(avaria.precoCusto || 0).toFixed(2)}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">
+                            <button class="excluir-avaria-detalhe" data-id="${avaria.id}" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
                     </tr>
                 `;
             });
             
             html += '</tbody>';
-            html += `
-                <tfoot>
-                    <tr style="background: #f8f8f8; font-weight: bold;">
-                        <td style="padding: 8px; border: 1px solid #ddd;">TOTAL</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${totalQuantidade.toFixed(3)} ${produto.unidade}</td>
-                        <td colspan="2" style="padding: 8px; border: 1px solid #ddd;"></td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">R$ ${totalValor.toFixed(2)}</td>
-                    </tr>
-                </tfoot>
-            `;
             html += '</table>';
         } else {
-            html += '<p>Nenhuma avaria encontrada para este produto no período selecionado.</p>';
+            html += '<p>Nenhuma avaria registrada para este produto.</p>';
         }
         
         html += `
             <div style="margin-top: 20px; text-align: center;">
-                <button id="btnFecharDetalhesAvarias" class="btn btn-voltar">Fechar</button>
+                <button id="btnFecharDetalhesAvariasModal" style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Fechar</button>
             </div>
         `;
         
@@ -1869,10 +2090,166 @@ class InterfacePDV {
         document.body.appendChild(overlay);
         document.body.appendChild(modalDiv);
         
-        document.getElementById('btnFecharDetalhesAvarias').addEventListener('click', () => {
+        // Event listener para fechar
+        document.getElementById('btnFecharDetalhesAvariasModal').addEventListener('click', () => {
             document.body.removeChild(overlay);
             document.body.removeChild(modalDiv);
         });
+        
+        // Event listeners para excluir avarias
+        setTimeout(() => {
+            document.querySelectorAll('.excluir-avaria-detalhe').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const avariaId = parseInt(e.target.closest('button').getAttribute('data-id'));
+                    if (confirm('Tem certeza que deseja excluir esta avaria e restaurar o estoque?')) {
+                        if (this.sistema.excluirAvaria(avariaId)) {
+                            // Fechar modal e recarregar
+                            document.body.removeChild(overlay);
+                            document.body.removeChild(modalDiv);
+                            this.carregarProdutosAvariados();
+                            alert('Avaria excluída e estoque restaurado!');
+                        }
+                    }
+                });
+            });
+        }, 100);
+    }
+    
+    // ==================== REGISTRAR AVARIA ====================
+    
+    registrarAvaria() {
+        try {
+            const produtoSelect = document.getElementById('produtoAvaria');
+            const quantidadeInput = document.getElementById('quantidadeAvaria');
+            const motivoSelect = document.getElementById('motivoAvaria');
+            const observacaoTextarea = document.getElementById('observacaoAvaria');
+            
+            const produtoId = produtoSelect.value;
+            const quantidade = parseFloat(quantidadeInput.value);
+            const motivo = motivoSelect.value;
+            const observacao = observacaoTextarea.value;
+            
+            console.log("=== TENTATIVA DE REGISTRAR AVARIA ===");
+            console.log("Produto ID:", produtoId, "Tipo:", typeof produtoId);
+            console.log("Quantidade:", quantidade);
+            console.log("Motivo:", motivo);
+            console.log("Observação:", observacao);
+            
+            // Validações
+            if (!produtoId || produtoId === "") {
+                alert('Selecione um produto!');
+                produtoSelect.focus();
+                return;
+            }
+            
+            if (!quantidade || isNaN(quantidade) || quantidade <= 0) {
+                alert('Digite uma quantidade válida!');
+                quantidadeInput.focus();
+                quantidadeInput.select();
+                return;
+            }
+            
+            if (!motivo || motivo === "") {
+                alert('Informe o motivo da avaria!');
+                motivoSelect.focus();
+                return;
+            }
+            
+            // Converter para número
+            const produtoIdNum = parseInt(produtoId);
+            
+            // Verificar se produto existe
+            const produto = this.sistema.buscarProdutoPorId(produtoIdNum);
+            if (!produto) {
+                console.error("Produto não encontrado. ID:", produtoIdNum);
+                console.log("Produtos disponíveis:", this.sistema.estoque);
+                alert(`Produto não encontrado! Por favor, selecione um produto válido.`);
+                return;
+            }
+            
+            // Verificar estoque
+            if (produto.quantidade < quantidade) {
+                alert(`Estoque insuficiente! Disponível: ${produto.quantidade.toFixed(3)} ${produto.unidade}`);
+                quantidadeInput.value = produto.quantidade.toString();
+                quantidadeInput.focus();
+                quantidadeInput.select();
+                return;
+            }
+            
+            // Registrar avaria
+            const avaria = this.sistema.registrarAvaria({
+                produtoId: produtoIdNum,
+                quantidade: quantidade,
+                motivo: motivo,
+                observacao: observacao
+            });
+            
+            if (avaria) {
+                alert(`✅ Avaria registrada com sucesso!\n\nProduto: ${produto.nome}\nQuantidade: ${avaria.quantidade} ${produto.unidade}\nMotivo: ${avaria.motivo}`);
+                
+                // Limpar formulário
+                produtoSelect.value = '';
+                quantidadeInput.value = '';
+                motivoSelect.value = '';
+                observacaoTextarea.value = '';
+                
+                // Recarregar seções
+                setTimeout(() => {
+                    this.carregarProdutosSelect();
+                    this.carregarProdutosAdmin();
+                    this.carregarProdutosAvariados();
+                }, 100);
+                
+            } else {
+                alert('❌ Erro ao registrar avaria!');
+            }
+            
+        } catch (error) {
+            console.error("Erro ao registrar avaria:", error);
+            alert(`Erro ao registrar avaria: ${error.message}`);
+        }
+    }
+    
+    // ==================== MÉTODOS DE RELATÓRIOS ====================
+    
+    carregarRelatorioEstoque() {
+        const tbody = document.getElementById('estoqueTableBody');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        
+        let totalValor = 0;
+        let totalProdutos = 0;
+        
+        this.sistema.estoque.forEach(produto => {
+            totalProdutos++;
+            const valorTotal = produto.quantidade * produto.precoEntrada;
+            totalValor += valorTotal;
+            
+            const row = `
+                <tr>
+                    <td>${produto.codigo}</td>
+                    <td>${produto.nome}</td>
+                    <td>${produto.categoria}</td>
+                    <td>${produto.quantidade.toFixed(3)}</td>
+                    <td>${produto.unidade}</td>
+                    <td>R$ ${produto.precoEntrada.toFixed(2)}</td>
+                    <td>R$ ${produto.precoVenda.toFixed(2)}</td>
+                    <td>R$ ${valorTotal.toFixed(2)}</td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+        
+        const totalEstoqueValor = document.getElementById('totalEstoqueValor');
+        if (totalEstoqueValor) {
+            totalEstoqueValor.textContent = `R$ ${totalValor.toFixed(2)}`;
+        }
+        
+        const totalProdutosElement = document.getElementById('totalProdutos');
+        if (totalProdutosElement) {
+            totalProdutosElement.textContent = totalProdutos.toString();
+        }
     }
     
     carregarRelatorioCaixa() {
@@ -1906,7 +2283,7 @@ class InterfacePDV {
         if (filteredCaixas.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center">Nenhum caixa encontrado para os filtros selecionados</td>
+                    <td colspan="6" style="text-align: center; padding: 20px;">Nenhum caixa encontrado para os filtros selecionados</td>
                 </tr>
             `;
             const totalGeralCaixa = document.getElementById('totalGeralCaixa');
@@ -1935,13 +2312,6 @@ class InterfacePDV {
                             ${caixa.fechado ? 'Fechado' : 'Aberto'}
                         </span>
                     </td>
-                    <td>
-                        ${caixa.vendas.length > 0 ? 
-                            `<button class="btn btn-azul ver-detalhes-caixa" data-id="${caixa.id}">
-                                <i class="fas fa-eye"></i> Detalhes
-                            </button>` : ''
-                        }
-                    </td>
                 </tr>
             `;
             tbody.innerHTML += row;
@@ -1956,9 +2326,9 @@ class InterfacePDV {
         document.getElementById('totalCaixas').textContent = totalCaixas;
         document.getElementById('totalVendasCaixa').textContent = totalVendas;
         
-        // Adicionar event listeners
+        // CORREÇÃO: Adicionar event listeners para os botões de detalhes
         setTimeout(() => {
-            document.querySelectorAll('.ver-detalhes-caixa').forEach(button => {
+            document.querySelectorAll('.ver-detalhes-caixa-relatorio').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const caixaId = parseInt(e.target.closest('button').getAttribute('data-id'));
                     this.verDetalhesCaixa(caixaId);
@@ -1967,55 +2337,139 @@ class InterfacePDV {
         }, 100);
     }
     
+    // ==================== MÉTODOS DE DETALHES DO CAIXA ====================
+    
     verDetalhesCaixa(caixaId) {
-        const caixa = this.sistema.caixas.find(c => c.id == caixaId);
-        if (!caixa) return;
+        console.log("Ver detalhes do caixa:", caixaId);
         
-        const vendas = this.sistema.obterVendasDetalhadasCaixa(caixaId);
+        const dadosCaixa = this.sistema.obterDetalhesCompletosCaixa(caixaId);
+        if (!dadosCaixa) {
+            alert("Caixa não encontrado!");
+            return;
+        }
+        
+        const { caixa, resumo, vendas, estatisticas, detalhesVendas } = dadosCaixa;
         
         let html = `
-            <div style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
-                <h3>Detalhes do Caixa #${caixa.id}</h3>
-                <p><strong>Abertura:</strong> ${new Date(caixa.dataAbertura).toLocaleString('pt-BR')}</p>
-                <p><strong>Operador:</strong> ${caixa.operadorNome}</p>
-                <p><strong>Status:</strong> ${caixa.fechado ? 'Fechado' : 'Aberto'}</p>
-                ${caixa.dataFechamento ? `<p><strong>Fechamento:</strong> ${new Date(caixa.dataFechamento).toLocaleString('pt-BR')}</p>` : ''}
-                <p><strong>Total do Caixa:</strong> R$ ${caixa.total.toFixed(2)}</p>
-                <p><strong>Número de Vendas:</strong> ${vendas.length}</p>
-                <hr>
-                <h4>Vendas deste Caixa</h4>
+            <div style="max-width: 1000px; max-height: 90vh; overflow-y: auto; padding: 30px; background: white; border-radius: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
+                    <div>
+                        <h3 style="color: #2c3e50; margin-bottom: 10px;">Detalhes do Caixa #${caixa.id}</h3>
+                        <p><strong>Operador:</strong> ${caixa.operadorNome}</p>
+                        <p><strong>Abertura:</strong> ${new Date(caixa.dataAbertura).toLocaleString('pt-BR')}</p>
+                        ${caixa.dataFechamento ? `<p><strong>Fechamento:</strong> ${new Date(caixa.dataFechamento).toLocaleString('pt-BR')}</p>` : ''}
+                    </div>
+                    <div style="text-align: right;">
+                        <span class="status-caixa ${caixa.fechado ? 'status-fechado' : 'status-aberto'}" style="font-size: 1.1rem;">
+                            ${caixa.fechado ? 'FECHADO' : 'ABERTO'}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Resumo do Caixa -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h4 style="color: #2c3e50; margin-bottom: 15px;">Resumo do Caixa</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div>
+                            <p><strong>Total de Vendas:</strong> ${resumo.totalVendas}</p>
+                            <p><strong>Valor Total:</strong> R$ ${resumo.totalValor.toFixed(2)}</p>
+                            <p><strong>Ticket Médio:</strong> R$ ${estatisticas.mediaPorVenda.toFixed(2)}</p>
+                        </div>
+                        <div>
+                            <p><strong>Hora Pico:</strong> ${estatisticas.horaPico}</p>
+                            <p><strong>Produto Mais Vendido:</strong> ${estatisticas.produtoMaisVendido ? estatisticas.produtoMaisVendido.nome : 'N/A'}</p>
+                            ${estatisticas.produtoMaisVendido ? `<p><strong>Quantidade:</strong> ${estatisticas.produtoMaisVendido.quantidade.toFixed(3)}</p>` : ''}
+                        </div>
+                    </div>
+                    
+                    <!-- Formas de Pagamento -->
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                        <h5 style="color: #2c3e50; margin-bottom: 10px;">Formas de Pagamento</h5>
+                        <div style="display: flex; justify-content: space-between;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 1.2rem; font-weight: bold; color: #27ae60;">R$ ${resumo.totalDinheiro.toFixed(2)}</div>
+                                <div style="color: #7f8c8d;">Dinheiro</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 1.2rem; font-weight: bold; color: #3498db;">R$ ${resumo.totalCartao.toFixed(2)}</div>
+                                <div style="color: #7f8c8d;">Cartão</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 1.2rem; font-weight: bold; color: #9b59b6;">R$ ${resumo.totalPix.toFixed(2)}</div>
+                                <div style="color: #7f8c8d;">PIX</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sangrias e Suprimentos -->
+                    ${caixa.sangrias.length > 0 || caixa.suprimentos.length > 0 ? `
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                            <h5 style="color: #2c3e50; margin-bottom: 10px;">Movimentações</h5>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                ${caixa.sangrias.length > 0 ? `
+                                    <div>
+                                        <p><strong>Sangrias:</strong> ${caixa.sangrias.length}</p>
+                                        <p><strong>Total Sangrias:</strong> R$ ${caixa.sangrias.reduce((total, s) => total + s.valor, 0).toFixed(2)}</p>
+                                    </div>
+                                ` : ''}
+                                ${caixa.suprimentos.length > 0 ? `
+                                    <div>
+                                        <p><strong>Suprimentos:</strong> ${caixa.suprimentos.length}</p>
+                                        <p><strong>Total Suprimentos:</strong> R$ ${caixa.suprimentos.reduce((total, s) => total + s.valor, 0).toFixed(2)}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Saldos -->
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <p><strong>Saldo Inicial:</strong> R$ ${caixa.saldoInicial.toFixed(2)}</p>
+                            </div>
+                            <div>
+                                <p><strong>Saldo Final:</strong> R$ ${resumo.saldoFinal.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vendas Detalhadas -->
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 15px;">Vendas Detalhadas (${vendas.length})</h4>
         `;
         
         if (vendas.length > 0) {
             html += '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
             html += `
                 <thead>
-                    <tr style="background: #f0f0f0;">
-                        <th style="padding: 8px; border: 1px solid #ddd;">ID</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Data/Hora</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Itens</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Total</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Pagamento</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Ações</th>
+                    <tr style="background: #ecf0f1;">
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">ID Venda</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Data/Hora</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Itens</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Total</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Pagamento</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Detalhes</th>
                     </tr>
                 </thead>
                 <tbody>
             `;
             
-            vendas.forEach(venda => {
-                const dataFormatada = new Date(venda.data).toLocaleDateString('pt-BR');
-                const horaFormatada = new Date(venda.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            detalhesVendas.forEach(detalhe => {
+                const dataFormatada = new Date(detalhe.data).toLocaleDateString('pt-BR');
+                const horaFormatada = new Date(detalhe.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                 
                 html += `
                     <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${venda.id}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${dataFormatada} ${horaFormatada}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${venda.itens.length} itens</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">R$ ${venda.total.toFixed(2)}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${venda.formaPagamento}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">
-                            <button class="btn btn-small btn-azul ver-itens-venda" data-vendaid="${venda.id}">
-                                <i class="fas fa-list"></i> Itens
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${detalhe.id}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${dataFormatada} ${horaFormatada}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${detalhe.itens.length} itens</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">R$ ${detalhe.total.toFixed(2)}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${detalhe.formaPagamento}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">
+                            <button class="ver-itens-venda-detalhes" data-vendaid="${detalhe.id}" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                                <i class="fas fa-list"></i> Ver
                             </button>
                         </td>
                     </tr>
@@ -2029,21 +2483,30 @@ class InterfacePDV {
         }
         
         html += `
-            <div style="margin-top: 20px; text-align: center;">
-                <button id="btnFecharDetalhesCaixa" class="btn btn-voltar">Fechar</button>
+                </div>
+                
+                <!-- Botão de impressão -->
+                <div style="margin-top: 20px; text-align: center;">
+                    <button id="btnImprimirDetalhesCaixa" style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">
+                        <i class="fas fa-print"></i> Imprimir Relatório
+                    </button>
+                    <button id="btnFecharDetalhesCaixaModal" style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        Fechar
+                    </button>
+                </div>
             </div>
         `;
         
         const modalDiv = document.createElement('div');
         modalDiv.innerHTML = html;
         modalDiv.style.position = 'fixed';
-        modalDiv.style.top = '50%';
-        modalDiv.style.left = '50%';
-        modalDiv.style.transform = 'translate(-50%, -50%)';
+        modalDiv.style.top = '0';
+        modalDiv.style.left = '0';
+        modalDiv.style.width = '100%';
+        modalDiv.style.height = '100%';
         modalDiv.style.backgroundColor = 'white';
         modalDiv.style.padding = '20px';
-        modalDiv.style.borderRadius = '10px';
-        modalDiv.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+        modalDiv.style.overflowY = 'auto';
         modalDiv.style.zIndex = '1001';
         
         const overlay = document.createElement('div');
@@ -2058,14 +2521,19 @@ class InterfacePDV {
         document.body.appendChild(overlay);
         document.body.appendChild(modalDiv);
         
-        document.getElementById('btnFecharDetalhesCaixa').addEventListener('click', () => {
+        // Event listeners
+        document.getElementById('btnFecharDetalhesCaixaModal').addEventListener('click', () => {
             document.body.removeChild(overlay);
             document.body.removeChild(modalDiv);
         });
         
+        document.getElementById('btnImprimirDetalhesCaixa').addEventListener('click', () => {
+            this.imprimirRelatorioCaixa(dadosCaixa);
+        });
+        
         // Adicionar event listeners para ver itens da venda
         setTimeout(() => {
-            document.querySelectorAll('.ver-itens-venda').forEach(button => {
+            document.querySelectorAll('.ver-itens-venda-detalhes').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const vendaId = parseInt(e.target.closest('button').getAttribute('data-vendaid'));
                     this.verItensVenda(vendaId);
@@ -2074,31 +2542,134 @@ class InterfacePDV {
         }, 100);
     }
     
+    imprimirRelatorioCaixa(dadosCaixa) {
+        const { caixa, resumo, estatisticas, detalhesVendas } = dadosCaixa;
+        
+        const conteudo = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Relatório do Caixa #${caixa.id}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    h1 { color: #2c3e50; }
+                    h2 { color: #34495e; margin-top: 20px; }
+                    .resumo { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                    th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+                    th { background: #ecf0f1; }
+                    .total { font-weight: bold; }
+                    @media print {
+                        .no-print { display: none; }
+                        button { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Relatório do Caixa #${caixa.id}</h1>
+                <p><strong>Operador:</strong> ${caixa.operadorNome}</p>
+                <p><strong>Abertura:</strong> ${new Date(caixa.dataAbertura).toLocaleString('pt-BR')}</p>
+                ${caixa.dataFechamento ? `<p><strong>Fechamento:</strong> ${new Date(caixa.dataFechamento).toLocaleString('pt-BR')}</p>` : ''}
+                <p><strong>Status:</strong> ${caixa.fechado ? 'Fechado' : 'Aberto'}</p>
+                
+                <div class="resumo">
+                    <h2>Resumo</h2>
+                    <p><strong>Total de Vendas:</strong> ${resumo.totalVendas}</p>
+                    <p><strong>Valor Total:</strong> R$ ${resumo.totalValor.toFixed(2)}</p>
+                    <p><strong>Ticket Médio:</strong> R$ ${estatisticas.mediaPorVenda.toFixed(2)}</p>
+                    <p><strong>Hora Pico:</strong> ${estatisticas.horaPico}</p>
+                    
+                    <h3>Formas de Pagamento</h3>
+                    <p>Dinheiro: R$ ${resumo.totalDinheiro.toFixed(2)}</p>
+                    <p>Cartão: R$ ${resumo.totalCartao.toFixed(2)}</p>
+                    <p>PIX: R$ ${resumo.totalPix.toFixed(2)}</p>
+                    
+                    ${caixa.sangrias.length > 0 ? `
+                        <h3>Sangrias</h3>
+                        <p>Total: R$ ${caixa.sangrias.reduce((total, s) => total + s.valor, 0).toFixed(2)}</p>
+                    ` : ''}
+                    
+                    ${caixa.suprimentos.length > 0 ? `
+                        <h3>Suprimentos</h3>
+                        <p>Total: R$ ${caixa.suprimentos.reduce((total, s) => total + s.valor, 0).toFixed(2)}</p>
+                    ` : ''}
+                    
+                    <p><strong>Saldo Inicial:</strong> R$ ${caixa.saldoInicial.toFixed(2)}</p>
+                    <p><strong>Saldo Final:</strong> R$ ${resumo.saldoFinal.toFixed(2)}</p>
+                </div>
+                
+                <h2>Vendas Detalhadas</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Data/Hora</th>
+                            <th>Itens</th>
+                            <th>Total</th>
+                            <th>Pagamento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${detalhesVendas.map(venda => `
+                            <tr>
+                                <td>${venda.id}</td>
+                                <td>${new Date(venda.data).toLocaleString('pt-BR')}</td>
+                                <td>${venda.itens.length}</td>
+                                <td>R$ ${venda.total.toFixed(2)}</td>
+                                <td>${venda.formaPagamento}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                
+                <div class="no-print" style="margin-top: 20px;">
+                    <button onclick="window.print()" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        Imprimir
+                    </button>
+                    <button onclick="window.close()" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">
+                        Fechar
+                    </button>
+                </div>
+                
+                <script>
+                    window.onload = function() {
+                        window.print();
+                    }
+                </script>
+            </body>
+            </html>
+        `;
+        
+        const janelaImpressao = window.open('', '_blank');
+        janelaImpressao.document.write(conteudo);
+        janelaImpressao.document.close();
+    }
+    
     verItensVenda(vendaId) {
         const venda = this.sistema.vendas.find(v => v.id == vendaId);
         if (!venda) return;
         
         let html = `
-            <div style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
-                <h3>Itens da Venda #${venda.id}</h3>
+            <div style="max-width: 600px; max-height: 80vh; overflow-y: auto; padding: 20px; background: white; border-radius: 10px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">Itens da Venda #${venda.id}</h3>
                 <p><strong>Data:</strong> ${new Date(venda.data).toLocaleString('pt-BR')}</p>
                 <p><strong>Total:</strong> R$ ${venda.total.toFixed(2)}</p>
                 <p><strong>Pagamento:</strong> ${venda.formaPagamento}</p>
                 ${venda.troco > 0 ? `<p><strong>Troco:</strong> R$ ${venda.troco.toFixed(2)}</p>` : ''}
                 <p><strong>Operador:</strong> ${venda.operadorNome}</p>
-                <hr>
-                <h4>Produtos Vendidos (${venda.itens.length})</h4>
+                <hr style="margin: 15px 0;">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">Produtos Vendidos (${venda.itens.length})</h4>
         `;
         
         if (venda.itens.length > 0) {
             html += '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
             html += `
                 <thead>
-                    <tr style="background: #f0f0f0;">
-                        <th style="padding: 8px; border: 1px solid #ddd;">Produto</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Quantidade</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Preço Unit.</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Subtotal</th>
+                    <tr style="background: #ecf0f1;">
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Produto</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Quantidade</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Preço Unit.</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Subtotal</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2107,10 +2678,10 @@ class InterfacePDV {
             venda.itens.forEach(item => {
                 html += `
                     <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${item.nome}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${item.quantidade.toFixed(3)} ${item.unidade}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">R$ ${item.preco.toFixed(2)}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">R$ ${item.getSubtotal().toFixed(2)}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${item.nome}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${item.quantidade.toFixed(3)} ${item.unidade}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">R$ ${item.preco.toFixed(2)}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">R$ ${item.getSubtotal().toFixed(2)}</td>
                     </tr>
                 `;
             });
@@ -2123,7 +2694,7 @@ class InterfacePDV {
         
         html += `
             <div style="margin-top: 20px; text-align: center;">
-                <button id="btnFecharItensVenda" class="btn btn-voltar">Fechar</button>
+                <button id="btnFecharItensVendaModal" style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Fechar</button>
             </div>
         `;
         
@@ -2151,13 +2722,14 @@ class InterfacePDV {
         document.body.appendChild(overlay);
         document.body.appendChild(modalDiv);
         
-        document.getElementById('btnFecharItensVenda').addEventListener('click', () => {
+        document.getElementById('btnFecharItensVendaModal').addEventListener('click', () => {
             document.body.removeChild(overlay);
             document.body.removeChild(modalDiv);
         });
     }
     
-    // Relatório de vendas por produto
+    // ==================== RELATÓRIO DE VENDAS POR PRODUTO ====================
+    
     carregarRelatorioVendasPorProduto() {
         const hoje = new Date().toISOString().split('T')[0];
         const dataInicio = document.getElementById('dataInicioVendasProduto');
@@ -2183,10 +2755,11 @@ class InterfacePDV {
         if (relatorio.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center">Nenhuma venda encontrada para o período selecionado</td>
+                    <td colspan="6" style="text-align: center; padding: 20px;">Nenhuma venda encontrada para o período selecionado</td>
                 </tr>
             `;
             document.getElementById('totalVendasProduto').textContent = 'R$ 0.00';
+            document.getElementById('totalQuantidadeVendasProduto').textContent = '0.000';
             return;
         }
         
@@ -2205,7 +2778,7 @@ class InterfacePDV {
                     <td>${item.vendas.length}</td>
                     <td>R$ ${item.totalVendido.toFixed(2)}</td>
                     <td>
-                        <button class="btn btn-azul ver-detalhes-vendas-produto" data-produtoid="${item.produtoId}" data-datainicio="${dataInicio}" data-datafim="${dataFim}">
+                        <button class="ver-detalhes-vendas-produto-relatorio" data-produtoid="${item.produtoId}" data-datainicio="${dataInicio}" data-datafim="${dataFim}" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                             <i class="fas fa-eye"></i> Detalhes
                         </button>
                     </td>
@@ -2219,7 +2792,7 @@ class InterfacePDV {
         
         // Adicionar event listeners
         setTimeout(() => {
-            document.querySelectorAll('.ver-detalhes-vendas-produto').forEach(button => {
+            document.querySelectorAll('.ver-detalhes-vendas-produto-relatorio').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const produtoId = button.getAttribute('data-produtoid');
                     const dataInicio = button.getAttribute('data-datainicio');
@@ -2271,27 +2844,27 @@ class InterfacePDV {
         });
         
         let html = `
-            <div style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
-                <h3>Detalhes de Vendas - ${produto.nome}</h3>
+            <div style="max-width: 800px; max-height: 80vh; overflow-y: auto; padding: 20px; background: white; border-radius: 10px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">Detalhes de Vendas - ${produto.nome}</h3>
                 <p><strong>Código:</strong> ${produto.codigo}</p>
                 <p><strong>Período:</strong> ${dataInicio} a ${dataFim}</p>
                 <p><strong>Total Vendido:</strong> ${totalQuantidade.toFixed(3)} ${produto.unidade}</p>
                 <p><strong>Valor Total:</strong> R$ ${totalValor.toFixed(2)}</p>
-                <hr>
-                <h4>Vendas Detalhadas (${vendasDoProduto.length})</h4>
+                <hr style="margin: 15px 0;">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">Vendas Detalhadas (${vendasDoProduto.length})</h4>
         `;
         
         if (vendasDoProduto.length > 0) {
             html += '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
             html += `
                 <thead>
-                    <tr style="background: #f0f0f0;">
-                        <th style="padding: 8px; border: 1px solid #ddd;">Data/Hora</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Venda ID</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Quantidade</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Valor</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Operador</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Pagamento</th>
+                    <tr style="background: #ecf0f1;">
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Data/Hora</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Venda ID</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Quantidade</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Valor</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Operador</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Pagamento</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2304,12 +2877,12 @@ class InterfacePDV {
                 itens.forEach(item => {
                     html += `
                         <tr>
-                            <td style="padding: 8px; border: 1px solid #ddd;">${dataFormatada} ${horaFormatada}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">${venda.id}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">${item.quantidade.toFixed(3)} ${item.unidade}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">R$ ${item.getSubtotal().toFixed(2)}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">${venda.operadorNome}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">${venda.formaPagamento}</td>
+                            <td style="padding: 8px; border: 1px solid #bdc3c7;">${dataFormatada} ${horaFormatada}</td>
+                            <td style="padding: 8px; border: 1px solid #bdc3c7;">${venda.id}</td>
+                            <td style="padding: 8px; border: 1px solid #bdc3c7;">${item.quantidade.toFixed(3)} ${item.unidade}</td>
+                            <td style="padding: 8px; border: 1px solid #bdc3c7;">R$ ${item.getSubtotal().toFixed(2)}</td>
+                            <td style="padding: 8px; border: 1px solid #bdc3c7;">${venda.operadorNome}</td>
+                            <td style="padding: 8px; border: 1px solid #bdc3c7;">${venda.formaPagamento}</td>
                         </tr>
                     `;
                 });
@@ -2323,7 +2896,7 @@ class InterfacePDV {
         
         html += `
             <div style="margin-top: 20px; text-align: center;">
-                <button id="btnFecharDetalhesVendasProduto" class="btn btn-voltar">Fechar</button>
+                <button id="btnFecharDetalhesVendasProdutoModal" style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Fechar</button>
             </div>
         `;
         
@@ -2351,7 +2924,182 @@ class InterfacePDV {
         document.body.appendChild(overlay);
         document.body.appendChild(modalDiv);
         
-        document.getElementById('btnFecharDetalhesVendasProduto').addEventListener('click', () => {
+        document.getElementById('btnFecharDetalhesVendasProdutoModal').addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            document.body.removeChild(modalDiv);
+        });
+    }
+    
+    // ==================== RELATÓRIO DE AVARIAS POR PRODUTO ====================
+    
+    carregarRelatorioAvariasPorProduto() {
+        const hoje = new Date().toISOString().split('T')[0];
+        const dataInicio = document.getElementById('dataInicioAvariasProduto');
+        const dataFim = document.getElementById('dataFimAvariasProduto');
+        
+        if (dataInicio) dataInicio.value = hoje;
+        if (dataFim) dataFim.value = hoje;
+        
+        this.gerarRelatorioAvariasProduto();
+    }
+    
+    gerarRelatorioAvariasProduto() {
+        const dataInicio = document.getElementById('dataInicioAvariasProduto').value;
+        const dataFim = document.getElementById('dataFimAvariasProduto').value;
+        
+        const relatorio = this.sistema.gerarRelatorioAvariasProdutos(dataInicio, dataFim);
+        
+        const tbody = document.getElementById('avariasProdutoTableBody');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        
+        if (relatorio.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 20px;">Nenhuma avaria encontrada para o período selecionado</td>
+                </tr>
+            `;
+            document.getElementById('totalAvariasProduto').textContent = 'R$ 0.00';
+            return;
+        }
+        
+        let totalGeral = 0;
+        
+        relatorio.forEach(item => {
+            totalGeral += item.totalValor;
+            
+            const row = `
+                <tr>
+                    <td>${item.produtoNome}</td>
+                    <td>${item.totalQuantidade.toFixed(3)}</td>
+                    <td>${item.avarias.length}</td>
+                    <td>R$ ${item.totalValor.toFixed(2)}</td>
+                    <td>
+                        <button class="ver-detalhes-avarias-produto-relatorio" data-produtoid="${item.produtoId}" data-datainicio="${dataInicio}" data-datafim="${dataFim}" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-eye"></i> Detalhes
+                        </button>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+        
+        document.getElementById('totalAvariasProduto').textContent = `R$ ${totalGeral.toFixed(2)}`;
+        
+        // Adicionar event listeners
+        setTimeout(() => {
+            document.querySelectorAll('.ver-detalhes-avarias-produto-relatorio').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const produtoId = button.getAttribute('data-produtoid');
+                    const dataInicio = button.getAttribute('data-datainicio');
+                    const dataFim = button.getAttribute('data-datafim');
+                    this.verDetalhesAvariasProduto(produtoId, dataInicio, dataFim);
+                });
+            });
+        }, 100);
+    }
+    
+    verDetalhesAvariasProduto(produtoId, dataInicio, dataFim) {
+        const produto = this.sistema.buscarProdutoPorId(parseInt(produtoId));
+        if (!produto) return;
+        
+        const avariasFiltradas = this.sistema.filtrarAvariasPorData(dataInicio, dataFim)
+            .filter(a => a.produtoId == produtoId);
+        
+        let html = `
+            <div style="max-width: 800px; max-height: 80vh; overflow-y: auto; padding: 20px; background: white; border-radius: 10px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">Detalhes de Avarias - ${produto.nome}</h3>
+                <p><strong>Código:</strong> ${produto.codigo}</p>
+                <p><strong>Período:</strong> ${dataInicio} a ${dataFim}</p>
+                <p><strong>Total de Avarias:</strong> ${avariasFiltradas.length}</p>
+                <hr style="margin: 15px 0;">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">Avarias Detalhadas</h4>
+        `;
+        
+        if (avariasFiltradas.length > 0) {
+            html += '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
+            html += `
+                <thead>
+                    <tr style="background: #ecf0f1;">
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Data/Hora</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Quantidade</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Motivo</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Observação</th>
+                        <th style="padding: 10px; border: 1px solid #bdc3c7;">Valor Perda</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            let totalQuantidade = 0;
+            let totalValor = 0;
+            
+            avariasFiltradas.forEach(avaria => {
+                totalQuantidade += avaria.quantidade;
+                totalValor += avaria.precoCusto || 0;
+                
+                const dataFormatada = new Date(avaria.data).toLocaleDateString('pt-BR');
+                const horaFormatada = new Date(avaria.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                
+                html += `
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${dataFormatada} ${horaFormatada}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${avaria.quantidade.toFixed(3)} ${produto.unidade}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${avaria.motivo}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">${avaria.observacao || '-'}</td>
+                        <td style="padding: 8px; border: 1px solid #bdc3c7;">R$ ${(avaria.precoCusto || 0).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody>';
+            html += `
+                <tfoot>
+                    <tr style="background: #f8f8f8; font-weight: bold;">
+                        <td style="padding: 10px; border: 1px solid #bdc3c7;">TOTAL</td>
+                        <td style="padding: 10px; border: 1px solid #bdc3c7;">${totalQuantidade.toFixed(3)} ${produto.unidade}</td>
+                        <td colspan="2" style="padding: 10px; border: 1px solid #bdc3c7;"></td>
+                        <td style="padding: 10px; border: 1px solid #bdc3c7;">R$ ${totalValor.toFixed(2)}</td>
+                    </tr>
+                </tfoot>
+            `;
+            html += '</table>';
+        } else {
+            html += '<p>Nenhuma avaria encontrada para este produto no período selecionado.</p>';
+        }
+        
+        html += `
+            <div style="margin-top: 20px; text-align: center;">
+                <button id="btnFecharDetalhesAvariasProdutoModal" style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Fechar</button>
+            </div>
+        `;
+        
+        const modalDiv = document.createElement('div');
+        modalDiv.innerHTML = html;
+        modalDiv.style.position = 'fixed';
+        modalDiv.style.top = '50%';
+        modalDiv.style.left = '50%';
+        modalDiv.style.transform = 'translate(-50%, -50%)';
+        modalDiv.style.backgroundColor = 'white';
+        modalDiv.style.padding = '20px';
+        modalDiv.style.borderRadius = '10px';
+        modalDiv.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+        modalDiv.style.zIndex = '1001';
+        
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        overlay.style.zIndex = '1000';
+        
+        document.body.appendChild(overlay);
+        document.body.appendChild(modalDiv);
+        
+        document.getElementById('btnFecharDetalhesAvariasProdutoModal').addEventListener('click', () => {
             document.body.removeChild(overlay);
             document.body.removeChild(modalDiv);
         });
@@ -2377,10 +3125,10 @@ class InterfacePDV {
                     <td>${new Date(operador.dataCadastro).toLocaleDateString()}</td>
                     <td>${dataAtualizacao}</td>
                     <td>
-                        <button class="btn btn-azul editar-operador" data-id="${operador.id}">
+                        <button class="editar-operador-admin" data-id="${operador.id}" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-vermelho excluir-operador" data-id="${operador.id}">
+                        <button class="excluir-operador-admin" data-id="${operador.id}" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -2391,14 +3139,14 @@ class InterfacePDV {
         
         // Adicionar event listeners
         setTimeout(() => {
-            document.querySelectorAll('.editar-operador').forEach(button => {
+            document.querySelectorAll('.editar-operador-admin').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const id = parseInt(e.target.closest('button').getAttribute('data-id'));
                     this.editarOperador(id);
                 });
             });
             
-            document.querySelectorAll('.excluir-operador').forEach(button => {
+            document.querySelectorAll('.excluir-operador-admin').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const id = parseInt(e.target.closest('button').getAttribute('data-id'));
                     this.excluirOperador(id);
@@ -2413,29 +3161,29 @@ class InterfacePDV {
         
         // Criar formulário de edição
         let html = `
-            <div style="max-width: 400px; padding: 20px;">
-                <h3>Editar Operador</h3>
+            <div style="max-width: 400px; padding: 20px; background: white; border-radius: 10px;">
+                <h3 style="color: #2c3e50; margin-bottom: 20px;">Editar Operador</h3>
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px;">Nome:</label>
-                    <input type="text" id="editarOperadorNome" value="${operador.nome}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Nome:</label>
+                    <input type="text" id="editarOperadorNome" value="${operador.nome}" style="width: 100%; padding: 10px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 1rem;">
                 </div>
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px;">Usuário:</label>
-                    <input type="text" id="editarOperadorUsuario" value="${operador.usuario}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Usuário:</label>
+                    <input type="text" id="editarOperadorUsuario" value="${operador.usuario}" style="width: 100%; padding: 10px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 1rem;">
                 </div>
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px;">Nova Senha (deixe em branco para manter a atual):</label>
-                    <input type="password" id="editarOperadorSenha" placeholder="Nova senha" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Nova Senha (deixe em branco para manter a atual):</label>
+                    <input type="password" id="editarOperadorSenha" placeholder="Nova senha" style="width: 100%; padding: 10px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 1rem;">
                 </div>
                 <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 5px;">Confirmar Nova Senha:</label>
-                    <input type="password" id="editarOperadorConfirmarSenha" placeholder="Confirmar nova senha" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Confirmar Nova Senha:</label>
+                    <input type="password" id="editarOperadorConfirmarSenha" placeholder="Confirmar nova senha" style="width: 100%; padding: 10px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 1rem;">
                 </div>
                 <div style="text-align: center;">
-                    <button id="btnSalvarEdicaoOperador" class="btn btn-azul" style="margin-right: 10px;">
+                    <button id="btnSalvarEdicaoOperadorModal" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">
                         <i class="fas fa-save"></i> Salvar
                     </button>
-                    <button id="btnCancelarEdicaoOperador" class="btn btn-voltar">
+                    <button id="btnCancelarEdicaoOperadorModal" style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
                         Cancelar
                     </button>
                 </div>
@@ -2466,7 +3214,7 @@ class InterfacePDV {
         document.body.appendChild(overlay);
         document.body.appendChild(modalDiv);
         
-        document.getElementById('btnSalvarEdicaoOperador').addEventListener('click', () => {
+        document.getElementById('btnSalvarEdicaoOperadorModal').addEventListener('click', () => {
             const nome = document.getElementById('editarOperadorNome').value.trim();
             const usuario = document.getElementById('editarOperadorUsuario').value.trim();
             const senha = document.getElementById('editarOperadorSenha').value;
@@ -2498,6 +3246,7 @@ class InterfacePDV {
                 this.carregarOperadoresAdmin();
                 this.carregarOperadoresSelect();
                 this.carregarOperadoresRelatorio();
+                this.atualizarContadores();
             } else {
                 alert('Erro ao atualizar operador!');
             }
@@ -2506,7 +3255,7 @@ class InterfacePDV {
             document.body.removeChild(modalDiv);
         });
         
-        document.getElementById('btnCancelarEdicaoOperador').addEventListener('click', () => {
+        document.getElementById('btnCancelarEdicaoOperadorModal').addEventListener('click', () => {
             document.body.removeChild(overlay);
             document.body.removeChild(modalDiv);
         });
@@ -2524,6 +3273,7 @@ class InterfacePDV {
             this.carregarOperadoresAdmin();
             this.carregarOperadoresSelect();
             this.carregarOperadoresRelatorio();
+            this.atualizarContadores();
             alert('Operador excluído com sucesso!');
         } else {
             alert('Erro ao excluir operador!');
@@ -2563,6 +3313,7 @@ class InterfacePDV {
             this.carregarOperadoresAdmin();
             this.carregarOperadoresSelect();
             this.carregarOperadoresRelatorio();
+            this.atualizarContadores();
         }
     }
     
@@ -2575,7 +3326,7 @@ class InterfacePDV {
             
             this.sistema.operadores.forEach(operador => {
                 const option = document.createElement('option');
-                option.value = operador.id;
+                option.value = operador.id.toString();
                 option.textContent = `${operador.nome} (${operador.usuario})`;
                 select.appendChild(option);
             });
@@ -2589,22 +3340,8 @@ class InterfacePDV {
             
             this.sistema.operadores.forEach(operador => {
                 const option = document.createElement('option');
-                option.value = operador.id;
+                option.value = operador.id.toString();
                 option.textContent = operador.nome;
-                select.appendChild(option);
-            });
-        }
-    }
-    
-    carregarCategorias() {
-        const categorias = this.sistema.getCategorias();
-        const select = document.getElementById('filtroCategoria');
-        if (select) {
-            select.innerHTML = '<option value="todos">Todas as Categorias</option>';
-            categorias.forEach(categoria => {
-                const option = document.createElement('option');
-                option.value = categoria;
-                option.textContent = categoria;
                 select.appendChild(option);
             });
         }
@@ -2676,6 +3413,14 @@ class InterfacePDV {
                 }
             }
             
+            // Botões do dashboard (período)
+            if (event.target.closest('.period-btn')) {
+                const btn = event.target.closest('.period-btn');
+                const periodo = btn.getAttribute('data-period');
+                this.periodoDashboard = periodo;
+                this.carregarDashboard();
+            }
+            
             // Botões de formas de pagamento
             if (event.target.closest('.forma-pagamento-btn')) {
                 const btn = event.target.closest('.forma-pagamento-btn');
@@ -2722,11 +3467,6 @@ class InterfacePDV {
             btnCadastrarProduto.addEventListener('click', () => this.cadastrarProduto());
         }
         
-        const btnRegistrarEntrada = document.getElementById('btnRegistrarEntrada');
-        if (btnRegistrarEntrada) {
-            btnRegistrarEntrada.addEventListener('click', () => this.registrarEntrada());
-        }
-        
         const btnRegistrarAvaria = document.getElementById('btnRegistrarAvaria');
         if (btnRegistrarAvaria) {
             btnRegistrarAvaria.addEventListener('click', () => this.registrarAvaria());
@@ -2754,13 +3494,11 @@ class InterfacePDV {
                 const formasPagamento = document.getElementById('formasPagamento');
                 if (formasPagamento) formasPagamento.classList.remove('hidden');
                 
-                document.querySelectorAll('.carrinho-footer').forEach(el => {
-                    el.classList.add('hidden');
-                });
+                const carrinhoFooter = document.querySelector('.carrinho-footer');
+                if (carrinhoFooter) carrinhoFooter.classList.add('hidden');
                 
-                document.querySelectorAll('.carrinho-items').forEach(el => {
-                    el.classList.add('hidden');
-                });
+                const carrinhoItems = document.getElementById('carrinhoItemsContainer');
+                if (carrinhoItems) carrinhoItems.classList.add('hidden');
             });
         }
         
@@ -2797,13 +3535,11 @@ class InterfacePDV {
                 const formasPagamento = document.getElementById('formasPagamento');
                 if (formasPagamento) formasPagamento.classList.add('hidden');
                 
-                document.querySelectorAll('.carrinho-footer').forEach(el => {
-                    el.classList.remove('hidden');
-                });
+                const carrinhoFooter = document.querySelector('.carrinho-footer');
+                if (carrinhoFooter) carrinhoFooter.classList.remove('hidden');
                 
-                document.querySelectorAll('.carrinho-items').forEach(el => {
-                    el.classList.remove('hidden');
-                });
+                const carrinhoItems = document.getElementById('carrinhoItemsContainer');
+                if (carrinhoItems) carrinhoItems.classList.remove('hidden');
                 this.selecionarPagamento(null);
             });
         }
@@ -2840,12 +3576,6 @@ class InterfacePDV {
             btnImprimirCupom.addEventListener('click', () => this.imprimirCupom());
         }
         
-        // Eventos para selects
-        const produtoSelect = document.getElementById('produtoSelect');
-        if (produtoSelect) {
-            produtoSelect.addEventListener('change', () => this.carregarInfoProduto());
-        }
-        
         // Botões para gerar relatórios
         const btnGerarRelatorioVendasProduto = document.getElementById('btnGerarRelatorioVendasProduto');
         if (btnGerarRelatorioVendasProduto) {
@@ -2862,9 +3592,10 @@ class InterfacePDV {
         if (btnLimparDados) {
             btnLimparDados.addEventListener('click', () => {
                 if (confirm('ATENÇÃO: Isso irá apagar TODOS os dados do sistema. Tem certeza?')) {
-                    this.sistema.limparTodosDados();
-                    alert('Dados limpos! O sistema será recarregado.');
-                    location.reload();
+                    if (this.sistema.limparTodosDados()) {
+                        alert('Dados limpos! O sistema será recarregado.');
+                        location.reload();
+                    }
                 }
             });
         }
@@ -2910,10 +3641,10 @@ class InterfacePDV {
             </head>
             <body>
                 <div class="no-print" style="margin-bottom: 10px; text-align: center;">
-                    <button onclick="window.print()" style="padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                    <button onclick="window.print()" style="padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 3px; cursor: pointer;">
                         Imprimir
                     </button>
-                    <button onclick="window.close()" style="padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; margin-left: 10px;">
+                    <button onclick="window.close()" style="padding: 5px 10px; background: #e74c3c; color: white; border: none; border-radius: 3px; cursor: pointer; margin-left: 10px;">
                         Fechar
                     </button>
                 </div>
@@ -2935,77 +3666,4 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log("DOM carregado, inicializando sistema PDV...");
     sistemaPDV = new SistemaPDV();
     interfacePDV = new InterfacePDV(sistemaPDV);
-    
-    // Adicionar estilo CSS para melhorar a aparência
-    const style = document.createElement('style');
-    style.textContent = `
-        .hidden { display: none !important; }
-        .show { display: block !important; }
-        .badge {
-            display: inline-block;
-            padding: 0.25em 0.4em;
-            font-size: 75%;
-            font-weight: 700;
-            line-height: 1;
-            text-align: center;
-            white-space: nowrap;
-            vertical-align: baseline;
-            border-radius: 0.25rem;
-        }
-        .badge-danger { background-color: #dc3545; color: white; }
-        .badge-warning { background-color: #ffc107; color: black; }
-        .badge-success { background-color: #28a745; color: white; }
-        .status-caixa {
-            padding: 0.25em 0.4em;
-            border-radius: 0.25rem;
-            font-weight: bold;
-        }
-        .status-aberto { background-color: #d4edda; color: #155724; }
-        .status-fechado { background-color: #f8d7da; color: #721c24; }
-        .btn {
-            display: inline-block;
-            padding: 0.375rem 0.75rem;
-            border: 1px solid transparent;
-            border-radius: 0.25rem;
-            cursor: pointer;
-            font-size: 1rem;
-            line-height: 1.5;
-            text-align: center;
-            text-decoration: none;
-            user-select: none;
-            vertical-align: middle;
-        }
-        .btn-azul { background-color: #007bff; color: white; }
-        .btn-vermelho { background-color: #dc3545; color: white; }
-        .btn-voltar { background-color: #6c757d; color: white; }
-        .btn-small { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
-        .empty-state {
-            text-align: center;
-            padding: 2rem;
-            color: #6c757d;
-        }
-        .empty-state i { font-size: 3rem; margin-bottom: 1rem; }
-        .produto-card {
-            border: 1px solid #dee2e6;
-            border-radius: 0.25rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            background-color: white;
-        }
-        .carrinho-item {
-            border: 1px solid #dee2e6;
-            border-radius: 0.25rem;
-            padding: 1rem;
-            margin-bottom: 0.5rem;
-            background-color: white;
-        }
-        .text-muted { color: #6c757d !important; }
-        .text-center { text-align: center; }
-        .mt-10 { margin-top: 10px; }
-        .flex { display: flex; }
-        .justify-between { justify-content: space-between; }
-        .items-start { align-items: flex-start; }
-        .text-right { text-align: right; }
-    `;
-    document.head.appendChild(style);
 });

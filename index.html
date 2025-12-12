@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estoque Mestre</title>
+    <title>♘ Estoque Mestre ♘</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <meta name="theme-color" content="#0c7036">
-    <link rel="shortcut icon" type="imagex/png" href="/negociacao.png">
+    <link rel="shortcut icon" type="imagex/png" href="/img/negociacao.png">
 </head>
 <body>
     <!-- Header -->
     <header>
         <div class="container">
             <div class="logo">
-                <div class="cavalo-xadrez">♞ </div>
+                <div class="cavalo-xadrez">♞ ♘ </div>
                 <h1>Estoque Mestre</h1>
             </div>
         </div>
@@ -105,10 +105,10 @@
                     <i class="fas fa-edit"></i>
                     <span>Gerenciar Produtos</span>
                 </button>
-                <button class="menu-btn" data-section="entradaProduto">
-                    <i class="fas fa-arrow-down"></i>
-                    <span>Entrada de Produto</span>
-                </button>
+                <button class="menu-btn" data-section="produtosAvariados">
+                    <i class="fas fa-exclamation-triangle"></i>
+                     Produtos Avariados
+            </button>
                 <button class="menu-btn" data-section="avariaProduto">
                     <i class="fas fa-exclamation-triangle"></i>
                     <span>Registrar Avaria</span>
@@ -197,43 +197,13 @@
                 </div>
             </div>
             
-            <!-- Entrada de Produto -->
-            <div id="entradaProduto" class="form-container hidden">
-                <h2><i class="fas fa-arrow-down"></i> Entrada de Produto no Estoque</h2>
-                <div class="form-grid">
-                    <div class="input-group">
-                        <label for="produtoSelect">Produto:</label>
-                        <select id="produtoSelect"></select>
-                    </div>
-                    <div class="input-group">
-                        <label for="quantidadeEntrada">Quantidade:</label>
-                        <input type="number" step="0.001" id="quantidadeEntrada" placeholder="0" min="0.001">
-                    </div>
-                    <div class="input-group">
-                        <label for="precoCustoEntrada">Preço de Custo (opcional):</label>
-                        <input type="number" step="0.01" id="precoCustoEntrada" placeholder="Deixe em branco para manter atual">
-                    </div>
-                    <div class="input-group">
-                        <label for="motivoEntrada">Motivo da Entrada:</label>
-                        <select id="motivoEntrada">
-                            <option value="compra">Compra</option>
-                            <option value="devolucao">Devolução</option>
-                            <option value="ajuste">Ajuste de Estoque</option>
-                            <option value="outro">Outro</option>
-                        </select>
-                    </div>
-                </div>
-                <div id="infoProduto" class="alert" style="display: none;">
-                    <p><strong>Informações do Produto:</strong></p>
-                    <p>Estoque Atual: <span id="estoqueAtual">0</span> <span id="unidadeAtual"></span></p>
-                    <p>Preço de Custo: R$ <span id="precoCustoAtual">0.00</span></p>
-                    <p>Preço de Venda: R$ <span id="precoVendaAtual">0.00</span></p>
-                </div>
-                <button class="btn mt-20" id="btnRegistrarEntrada">
-                    <i class="fas fa-plus-circle"></i>
-                    Registrar Entrada
-                </button>
-            </div>
+            <!-- produtos avariado -->
+            <div id="produtosAvariados" class="hidden">
+  
+    <div id="listaProdutosAvariados" class="mt-10">
+        <!-- Os produtos avariados serão carregados aqui -->
+    </div>
+</div>
             
             <!-- Registrar Avaria -->
             <div id="avariaProduto" class="form-container hidden">
@@ -371,7 +341,6 @@
                                 <th>Vendas</th>
                                 <th>Total Vendas</th>
                                 <th>Status</th>
-                                <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody id="caixaTableBody"></tbody>
@@ -384,12 +353,7 @@
                         </tfoot>
                     </table>
                 </div>
-                <div class="flex gap-10 mt-20">
-                    <button class="btn" id="btnExportarRelatorioCaixa">
-                        <i class="fas fa-file-excel"></i>
-                        Exportar Relatório
-                    </button>
-                </div>
+               
             </div>
             
             <!-- Gerenciar Operadores -->
