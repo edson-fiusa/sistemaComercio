@@ -287,16 +287,17 @@ class SistemaPDV {
     carregarEstoqueExemplo() {
         console.log("Carregando estoque de exemplo...");
         this.estoque = [
-            new Produto(1, "AR001", "Arroz Tipo 1 5kg", 18.50, 25.90, "unidade", 50, 10, "Alimentos"),
-            new Produto(2, "FE001", "Feijão Carioca 1kg", 7.80, 12.50, "unidade", 30, 5, "Alimentos"),
-            new Produto(3, "AC001", "Açúcar Cristal 1kg", 3.20, 5.90, "unidade", 40, 8, "Alimentos"),
-            new Produto(4, "CA001", "Café em Pó 500g", 11.90, 18.50, "unidade", 25, 5, "Alimentos"),
-            new Produto(5, "LE001", "Leite Integral 1L", 4.20, 6.90, "unidade", 60, 15, "Laticínios"),
-            new Produto(6, "OL001", "Óleo de Soja 900ml", 5.90, 9.50, "unidade", 45, 10, "Alimentos"),
-            new Produto(7, "SA001", "Sal Refinado 1kg", 1.50, 3.90, "unidade", 35, 8, "Alimentos"),
-            new Produto(8, "BO001", "Biscoito Cream Cracker", 4.50, 7.90, "unidade", 20, 5, "Alimentos"),
-            new Produto(9, "RE001", "Refrigerante 2L", 6.50, 10.90, "unidade", 30, 10, "Bebidas"),
-            new Produto(10, "AG001", "Água Mineral 500ml", 1.20, 2.90, "unidade", 50, 15, "Bebidas")
+        new Produto(1, "78945680", "Arroz Tipo 1 5kg", 18.50, 25.90, "unidade", 50, 10, "Alimentos"),
+        new Produto(2, "78945681", "Feijão Carioca 1kg", 7.80, 12.50, "unidade", 30, 5, "Alimentos"),
+        new Produto(3, "78945682", "Açúcar Cristal 1kg", 3.20, 5.90, "unidade", 40, 8, "Alimentos"),
+        new Produto(4, "78945683", "Café em Pó 500g", 11.90, 18.50, "unidade", 25, 5, "Alimentos"),
+        new Produto(5, "78945684", "Leite Integral 1L", 4.20, 6.90, "unidade", 60, 15, "Laticínios"),
+        new Produto(6, "78945685", "Óleo de Soja 900ml", 5.90, 9.50, "unidade", 45, 10, "Alimentos"),
+        new Produto(7, "78945686", "Sal Refinado 1kg", 1.50, 3.90, "unidade", 35, 8, "Alimentos"),
+        new Produto(8, "78945687", "Biscoito Cream Cracker", 4.50, 7.90, "unidade", 20, 5, "Alimentos"),
+        new Produto(9, "78945688", "Refrigerante 2L", 6.50, 10.90, "unidade", 30, 10, "Bebidas"),
+        new Produto(10, "78945689", "Água Mineral 500ml", 1.20, 2.90, "unidade", 50, 15, "Bebidas")
+            
         ];
         this.salvarEstoque();
         console.log("Estoque de exemplo carregado com 10 produtos");
